@@ -3,6 +3,7 @@
 #include <vector>
 #include <stdio.h>
 #include <univalue.h>
+#include <time.h>
 #include <evhtp.h>
 #include <assert.h>
 
@@ -47,6 +48,35 @@ upload_finish_cb(evhtp_request_t * req, void * arg)
 	return EVHTP_RES_OK;
 }
 
+static int64_t
+get_content_length (const evhtp_request_t *req)
+{
+    assert(req != NULL);
+    const char *content_len_str = evhtp_kv_find (req->headers_in, "Content-Length");
+    if (!content_len_str) {
+        return -1;
+    }
+
+    return strtoll (content_len_str, NULL, 10);
+}
+
+static void
+logRequest(evhtp_request_t *req)
+{
+	time_t t = time(NULL);
+	struct tm tm;
+	gmtime_r(&t, &tm);
+
+	char timeStr[80];
+	strftime(timeStr, sizeof(timeStr), "%FT%TZ", &tm);
+
+	htp_method method = evhtp_request_get_method(req);
+	const char *method_name = htparser_get_methodstr_m(method);
+
+	printf("%s %lld %s\n", timeStr, (long long) get_content_length(req),
+		method_name);
+}
+
 static evhtp_res
 upload_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
 {
@@ -60,6 +90,26 @@ upload_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
 	req->cbarg = state;
 	evhtp_request_set_hook (req, evhtp_hook_on_read, (evhtp_hook) upload_read_cb, state);
 	evhtp_request_set_hook (req, evhtp_hook_on_request_fini, (evhtp_hook) upload_finish_cb, state);
+
+	logRequest(req);
+
+	return EVHTP_RES_OK;
+}
+
+static evhtp_res
+upload_no_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
+{
+	if (evhtp_request_get_method(req) == htp_method_OPTIONS) {
+		return EVHTP_RES_OK;
+	}
+
+	ReqState *state = new ReqState();
+	assert(state != NULL);
+
+	req->cbarg = state;
+	evhtp_request_set_hook (req, evhtp_hook_on_request_fini, (evhtp_hook) upload_finish_cb, state);
+
+	logRequest(req);
 
 	return EVHTP_RES_OK;
 }
@@ -104,7 +154,8 @@ int main(int argc, char ** argv)
 
 	evhtp_set_gencb(htp, reqDefault, NULL);
 
-	evhtp_set_cb(htp, "/", reqRoot, NULL);
+	cb = evhtp_set_cb(htp, "/", reqRoot, NULL);
+	evhtp_callback_set_hook(cb, evhtp_hook_on_headers, (evhtp_hook) upload_no_headers_cb, NULL);
 
 	cb = evhtp_set_cb(htp, "/post", reqPost, NULL);
 	evhtp_callback_set_hook(cb, evhtp_hook_on_headers, (evhtp_hook) upload_headers_cb, NULL);
