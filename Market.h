@@ -110,12 +110,14 @@ public:
 public:
     ////////////////////////////////////
     // Command implementatiokns
-    bool doModify(const std::vector<std::string> & tokens, size_t position);
     bool doDisplay(const std::vector<std::string> & tokens, size_t position);
 
     ////////////////////////
     // Order book interactions
     bool symbolIsDefined(const std::string & symbol);
+    bool orderModify(const std::string & orderIdStr,
+                     int32_t quantityChange = liquibook::book::SIZE_UNCHANGED,
+                     liquibook::book::Price price = liquibook::book::PRICE_UNCHANGED);
     bool orderCancel(const std::string & orderIdStr);
     void orderSubmit(OrderBookPtr book, OrderPtr order,
 		     const std::string& orderIdStr,

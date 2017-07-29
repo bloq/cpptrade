@@ -306,6 +306,44 @@ void reqOrderAdd(evhtp_request_t * req, void * arg)
 	evhtp_send_reply(req, EVHTP_RES_OK);
 }
 
+void reqOrderModify(evhtp_request_t * req, void * arg)
+{
+	ReqState *state = (ReqState *) arg;
+	assert(state != NULL);
+
+	std::map<std::string,UniValue::VType> apiSchema;
+	apiSchema["order_id"] = UniValue::VSTR;
+
+	UniValue jval;
+	if (!parseBySchema(state, apiSchema, jval)) {
+		evhtp_send_reply(req, EVHTP_RES_BADREQ);
+		return;
+	}
+
+	if (!jval.exists("price") &&
+	    !jval.exists("qtyDelta")) {
+		evhtp_send_reply(req, EVHTP_RES_BADREQ);
+		return;
+	}
+
+	string orderIdStr = jval["order_id"].getValStr();
+	int32_t qtyDelta = liquibook::book::SIZE_UNCHANGED;
+	if (jval.exists("qtyDelta"))
+		qtyDelta = atoll(jval["qtyDelta"].getValStr().c_str());
+	liquibook::book::Price price = liquibook::book::PRICE_UNCHANGED;
+	if (jval.exists("price"))
+		price = atoll(jval["price"].getValStr().c_str());
+
+	bool rc = market.orderModify(orderIdStr, qtyDelta, price);
+
+	UniValue res(rc);
+
+	string body = res.write(2) + "\n";
+
+	evbuffer_add(req->buffer_out, body.c_str(), body.size());
+	evhtp_send_reply(req, EVHTP_RES_OK);
+}
+
 void reqOrderCancel(evhtp_request_t * req, void * arg)
 {
 	ReqState *state = (ReqState *) arg;
@@ -435,6 +473,7 @@ static const struct HttpApiEntry apiRegistry[] = {
 	{ "/marketList", reqMarketList, false, false },
 	{ "/orderAdd", reqOrderAdd, true, true },
 	{ "/orderCancel", reqOrderCancel, true, true },
+	{ "/orderModify", reqOrderModify, true, true },
 };
 
 int main(int argc, char ** argv)

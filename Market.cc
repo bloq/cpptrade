@@ -129,11 +129,7 @@ bool
 Market::apply(const std::vector<std::string> & tokens)
 {
     const std::string & command = tokens[0];
-    if(command == "MODIFY" || command == "M")
-    {
-        return doModify(tokens, 1);
-    }
-    else if(command == "DISPLAY" || command == "D")
+    if(command == "DISPLAY" || command == "D")
     {
         return doDisplay(tokens, 1);
     }
@@ -170,96 +166,27 @@ bool Market::orderCancel(const std::string & orderIdStr)
 
 ///////////
 // MODIFY
-bool
-Market::doModify(const std::vector<std::string> & tokens, size_t position)
+bool Market::orderModify(const std::string & orderIdStr,
+			 int32_t quantityChange,
+			 liquibook::book::Price price)
 {
     OrderPtr order;
     OrderBookPtr book;
-    if(!findExistingOrder(tokens[0], order, book))
+    if(!findExistingOrder(orderIdStr, order, book))
     {
         return false;
     }
 
-    //////////////
-    // options
-    //////////////////////////
-    // OPTIONS: PRICE (price) ; QUANTITY (delta)
+	if (price != liquibook::book::PRICE_UNCHANGED) {
+		if ((price <= 0) ||
+		    (price == INVALID_UINT32))
+			return false;
+	}
 
-    int32_t quantityChange = liquibook::book::SIZE_UNCHANGED;
-    liquibook::book::Price price = liquibook::book::PRICE_UNCHANGED;
-
-    bool go = false;
-    while(!go)
-    {
-        bool prompted = false;
-        bool optionOk = false;
-        std::string option = nextToken(tokens, position);
-        if(option.empty())
-        {
-            prompted = true;
-            option = promptForString("PRICE, or QUANTITY, or END");
-        }
-        if(option == ";" || option == "E" || option == "END")
-        {
-            go = true;
-            optionOk = true;
-        }
-        else if(option == "P" || option == "PRICE")
-        {
-            uint32_t newPrice = INVALID_UINT32;
-            std::string priceStr = nextToken(tokens, position);
-            if(priceStr.empty())
-            {
-                newPrice = promptForUint32("New Price");
-            }
-            else
-            {
-                newPrice = toUint32(priceStr);
-            }
-
-            if(newPrice > 0 && newPrice != INVALID_UINT32)
-            {
-                price = newPrice;
-                optionOk = true;
-            }
-            else
-            {
-                out() << "Invalid price" << std::endl;
-            }
-        }
-        else if(option == "Q" || option == "QUANTITY")
-        {
-            int32_t qty = INVALID_INT32;
-            std::string qtyStr = nextToken(tokens, position);
-            if(qtyStr.empty())
-            {
-                qty = promptForInt32("Change in quantity");
-            }
-            else
-            {
-                qty = toInt32(qtyStr);
-            }
-            if(qty != INVALID_INT32)
-            {
-                quantityChange = qty;
-                optionOk = true;
-            }
-            else
-            {
-                out() << "Invalid quantity change." << std::endl;
-            }
-        }
-
-        if(!optionOk)
-        {
-            out() << "Unknown or invalid option " << option << std::endl;
-            if(!prompted)
-            {
-                out() << "--Expecting PRICE <price>, or QUANTITY <change>, or  END" << std::endl;
-                return false;
-            }
-        }
-    }
+	if (quantityChange != liquibook::book::SIZE_UNCHANGED) {
+		if (quantityChange == INVALID_INT32)
+			return false;
+	}
 
     book->replace(order, quantityChange, price);
     out() << "Requested Modify" ;
