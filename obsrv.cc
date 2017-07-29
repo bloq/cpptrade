@@ -62,9 +62,11 @@ static Market market;
 
 static bool validSymbol(const std::string& sym)
 {
+	// between 1 and 16 chars
 	if ((sym.size() == 0) || (sym.size() > 16))
 		return false;
 
+	// must be uppercase alpha
 	for (size_t i = 0; i < sym.size(); i++) {
 		char ch = sym[i];
 		if (!isalpha(ch) || !isupper(ch))
@@ -107,9 +109,11 @@ static std::string addressToStr(const struct sockaddr *sockaddr,
 
 static std::string formatTime(const std::string& fmt, time_t t)
 {
+	// convert unix seconds-since-epoch to split-out struct
 	struct tm tm;
 	gmtime_r(&t, &tm);
 
+	// build formatted time string
 	char timeStr[fmt.size() + 256];
 	strftime(timeStr, sizeof(timeStr), fmt.c_str(), &tm);
 
@@ -132,16 +136,21 @@ logRequest(evhtp_request_t *req, ReqState *state)
 	assert(req != NULL);
 	assert(state != NULL);
 
+	// IP address
 	string addrStr = addressToStr(req->conn->saddr,
 				      sizeof(struct sockaddr)); // TODO verify
 
+	// request timestamp.  use request-completion (not request-start)
+	// time instead?
 	struct tm tm;
 	gmtime_r(&state->tstamp.tv_sec, &tm);
 
+	// get http method, build timestamp str
 	string timeStr = isoTimeStr(state->tstamp.tv_sec);
 	htp_method method = evhtp_request_get_method(req);
 	const char *method_name = htparser_get_methodstr_m(method);
 
+	// output log line
 	printf("%s - - [%s] \"%s %s\" ? %lld\n",
 		addrStr.c_str(),
 		timeStr.c_str(),
@@ -156,13 +165,16 @@ upload_read_cb(evhtp_request_t * req, evbuf_t * buf, void * arg)
 	ReqState *state = (ReqState *) arg;
 	assert(state != NULL);
 
+	// remove data from evbuffer to malloc'd buffer
 	size_t bufsz = evbuffer_get_length(buf);
 	char *chunk = (char *) malloc(bufsz);
 	int rc = evbuffer_remove(buf, chunk, bufsz);
 	assert(rc == (int) bufsz);
 
+	// append chunk to total body
 	state->body.append(chunk, bufsz);
 
+	// release malloc'd buffer
 	free(chunk);
 
 	return EVHTP_RES_OK;
@@ -174,8 +186,10 @@ req_finish_cb(evhtp_request_t * req, void * arg)
 	ReqState *state = (ReqState *) arg;
 	assert(state != NULL);
 
+	// log request, following processing
 	logRequest(req, state);
 
+	// release our per-request state
 	delete state;
 
 	return EVHTP_RES_OK;
@@ -183,32 +197,40 @@ req_finish_cb(evhtp_request_t * req, void * arg)
 
 static void reqInit(evhtp_request_t *req, ReqState *state)
 {
+	// standard Date header
 	evhtp_headers_add_header(req->headers_out,
 		evhtp_header_new("Date",
 			 httpDateHdr(state->tstamp.tv_sec).c_str(),
 			 0, 1));
 
+	// standard Server header
 	const char *serverVer = PROGRAM_NAME "/" PACKAGE_VERSION;
 	evhtp_headers_add_header(req->headers_out,
 		evhtp_header_new("Server", serverVer, 0, 0));
 
+	// assign our global (to a request) state
 	req->cbarg = state;
 
+	// assign request completion hook
 	evhtp_request_set_hook (req, evhtp_hook_on_request_fini, (evhtp_hook) req_finish_cb, state);
 }
 
 static evhtp_res
 upload_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
 {
+	// handle OPTIONS
 	if (evhtp_request_get_method(req) == htp_method_OPTIONS) {
 		return EVHTP_RES_OK;
 	}
 
+	// alloc new per-request state
 	ReqState *state = new ReqState();
 	assert(state != NULL);
 
+	// common per-request state
 	reqInit(req, state);
 
+	// special incoming-data hook
 	evhtp_request_set_hook (req, evhtp_hook_on_read, (evhtp_hook) upload_read_cb, state);
 
 	return EVHTP_RES_OK;
@@ -217,13 +239,16 @@ upload_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
 static evhtp_res
 no_upload_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
 {
+	// handle OPTIONS
 	if (evhtp_request_get_method(req) == htp_method_OPTIONS) {
 		return EVHTP_RES_OK;
 	}
 
+	// alloc new per-request state
 	ReqState *state = new ReqState();
 	assert(state != NULL);
 
+	// common per-request state
 	reqInit(req, state);
 
 	return EVHTP_RES_OK;
@@ -250,18 +275,21 @@ void reqOrderAdd(evhtp_request_t * req, void * arg)
 	ReqState *state = (ReqState *) arg;
 	assert(state != NULL);
 
+	// required JSON parameters and their types
 	std::map<std::string,UniValue::VType> apiSchema;
 	apiSchema["symbol"] = UniValue::VSTR;
 	apiSchema["qty"] = UniValue::VNUM;
 	apiSchema["price"] = UniValue::VNUM;
 	apiSchema["is_buy"] = UniValue::VBOOL;
 
+	// parse input into JSON + preliminary input validation
 	UniValue jval;
 	if (!parseBySchema(state, apiSchema, jval)) {
 		evhtp_send_reply(req, EVHTP_RES_BADREQ);
 		return;
 	}
 
+	// copy JSON input params into more manageable temporary variables
 	string symbol = jval["symbol"].getValStr();
 	liquibook::book::Quantity quantity = atoll(jval["qty"].getValStr().c_str());
 	liquibook::book::Price price = atoll(jval["price"].getValStr().c_str());
@@ -272,20 +300,18 @@ void reqOrderAdd(evhtp_request_t * req, void * arg)
 	if (jval.exists("stop"))
 		stopPrice = atoll(jval["stop"].getValStr().c_str());
 
-	if (!validSymbol(symbol)) {
-		evhtp_send_reply(req, EVHTP_RES_BADREQ);
-		return;
-	}
-
+	// lookup order book from symbol
 	auto book = market.findBook(symbol);
 	if (!book) {
 		evhtp_send_reply(req, EVHTP_RES_NOTFOUND);
 		return;
 	}
 
+	// generate new order id
 	uint32_t thisOrderId = nextOrderId++;
 	std::string orderId = std::to_string(thisOrderId);
 
+	// build new order instance, given input params above
 	OrderPtr order = std::make_shared<Order>(orderId, isBuy, quantity, symbol, price, stopPrice, aon, ioc);
 
 	const liquibook::book::OrderConditions AON(liquibook::book::oc_all_or_none);
@@ -295,11 +321,14 @@ void reqOrderAdd(evhtp_request_t * req, void * arg)
 	const liquibook::book::OrderConditions conditions = 
 	    (aon ? AON : NOC) | (ioc ? IOC : NOC);
 
+	// submit order to order book
 	market.orderSubmit(book, order, orderId, conditions);
 
+	// return order data
 	UniValue res(UniValue::VOBJ);
 	res.pushKV("orderId", (uint64_t) thisOrderId);
 
+	// successful operation.  Return JSON output.
 	string body = res.write(2) + "\n";
 
 	evbuffer_add(req->buffer_out, body.c_str(), body.size());
@@ -311,9 +340,11 @@ void reqOrderModify(evhtp_request_t * req, void * arg)
 	ReqState *state = (ReqState *) arg;
 	assert(state != NULL);
 
+	// required JSON parameters and their types
 	std::map<std::string,UniValue::VType> apiSchema;
 	apiSchema["order_id"] = UniValue::VSTR;
 
+	// parse input into JSON + preliminary input validation
 	UniValue jval;
 	if (!parseBySchema(state, apiSchema, jval)) {
 		evhtp_send_reply(req, EVHTP_RES_BADREQ);
@@ -326,6 +357,7 @@ void reqOrderModify(evhtp_request_t * req, void * arg)
 		return;
 	}
 
+	// copy JSON input params into more manageable temporary variables
 	string orderIdStr = jval["order_id"].getValStr();
 	int32_t qtyDelta = liquibook::book::SIZE_UNCHANGED;
 	if (jval.exists("qtyDelta"))
@@ -334,10 +366,12 @@ void reqOrderModify(evhtp_request_t * req, void * arg)
 	if (jval.exists("price"))
 		price = atoll(jval["price"].getValStr().c_str());
 
+	// submit modification request to order book
 	bool rc = market.orderModify(orderIdStr, qtyDelta, price);
 
 	UniValue res(rc);
 
+	// successful operation.  Return JSON output.
 	string body = res.write(2) + "\n";
 
 	evbuffer_add(req->buffer_out, body.c_str(), body.size());
@@ -349,21 +383,26 @@ void reqOrderCancel(evhtp_request_t * req, void * arg)
 	ReqState *state = (ReqState *) arg;
 	assert(state != NULL);
 
+	// required JSON parameters and their types
 	std::map<std::string,UniValue::VType> apiSchema;
 	apiSchema["order_id"] = UniValue::VSTR;
 
+	// parse input into JSON + preliminary input validation
 	UniValue jval;
 	if (!parseBySchema(state, apiSchema, jval)) {
 		evhtp_send_reply(req, EVHTP_RES_BADREQ);
 		return;
 	}
 
+	// copy JSON input params into more manageable temporary variables
 	string orderIdStr = jval["order_id"].getValStr();
 
+	// submit cancellation request to order book
 	bool rc = market.orderCancel(orderIdStr);
 
 	UniValue res(rc);
 
+	// successful operation.  Return JSON output.
 	string body = res.write(2) + "\n";
 
 	evbuffer_add(req->buffer_out, body.c_str(), body.size());
@@ -375,23 +414,28 @@ void reqOrderBookList(evhtp_request_t * req, void * arg)
 	ReqState *state = (ReqState *) arg;
 	assert(state != NULL);
 
+	// required JSON parameters and their types
 	std::map<std::string,UniValue::VType> apiSchema;
 	apiSchema["symbol"] = UniValue::VSTR;
 
+	// parse input into JSON + preliminary input validation
 	UniValue jval;
 	if (!parseBySchema(state, apiSchema, jval)) {
 		evhtp_send_reply(req, EVHTP_RES_BADREQ);
 		return;
 	}
 
+	// copy JSON input params into more manageable temporary variables
 	string inSymbol = jval["symbol"].getValStr();
 
+	// lookup order book from symbol
 	auto book = market.findBook(inSymbol);
 	if (!book) {
 		evhtp_send_reply(req, EVHTP_RES_NOTFOUND);
 		return;
 	}
 
+	// gather list of asks from order book
 	UniValue asksArr(UniValue::VARR);
 	const OrderBook::TrackerMap& asks_ = book->asks();
 	for (auto ask = asks_.rbegin(); ask != asks_.rend(); ++ask) {
@@ -401,6 +445,7 @@ void reqOrderBookList(evhtp_request_t * req, void * arg)
 		asksArr.push_back(askObj);
 	}
 
+	// gather list of bids from order book
 	UniValue bidsArr(UniValue::VARR);
 	const OrderBook::TrackerMap& bids_ = book->bids();
 	for (auto bid = bids_.rbegin(); bid != bids_.rend(); ++bid) {
@@ -410,10 +455,12 @@ void reqOrderBookList(evhtp_request_t * req, void * arg)
 		bidsArr.push_back(bidObj);
 	}
 
+	// build return object
 	UniValue obj(UniValue::VOBJ);
 	obj.pushKV("bids", bidsArr);
 	obj.pushKV("asks", asksArr);
 
+	// successful operation.  Return JSON output.
 	string body = obj.write(2) + "\n";
 
 	evbuffer_add(req->buffer_out, body.c_str(), body.size());
@@ -425,34 +472,41 @@ void reqMarketAdd(evhtp_request_t * req, void * arg)
 	ReqState *state = (ReqState *) arg;
 	assert(state != NULL);
 
+	// required JSON parameters and their types
 	std::map<std::string,UniValue::VType> apiSchema;
 	apiSchema["symbol"] = UniValue::VSTR;
 	apiSchema["booktype"] = UniValue::VSTR;
 
+	// parse input into JSON + preliminary input validation
 	UniValue jval;
 	if (!parseBySchema(state, apiSchema, jval)) {
 		evhtp_send_reply(req, EVHTP_RES_BADREQ);
 		return;
 	}
 
+	// copy JSON input params into more manageable temporary variables
 	string inSymbol = jval["symbol"].getValStr();
 	string inBookType = jval["booktype"].getValStr();
 
+	// validate symbol name and book type
 	if (!validSymbol(inSymbol) ||
 	    !validBookType(inBookType)) {
 		evhtp_send_reply(req, EVHTP_RES_BADREQ);
 		return;
 	}
 
+	// verify this is not a duplicate
 	if (market.symbolIsDefined(inSymbol)) {
 		evhtp_send_reply(req, EVHTP_RES_FORBIDDEN);
 		return;
 	}
 
+	// create new order book
 	market.addBook(inSymbol, (inBookType == "depth"));
 
 	UniValue obj(true);
 
+	// successful operation.  Return JSON output.
 	string body = obj.write(2) + "\n";
 
 	evbuffer_add(req->buffer_out, body.c_str(), body.size());
@@ -463,14 +517,17 @@ void reqMarketList(evhtp_request_t * req, void * a)
 {
 	UniValue res(UniValue::VARR);
 
+	// request list of symbols from market
 	vector<string> symbols;
 	market.getSymbols(symbols);
 
+	// copy vector of symbols to JSON result array
 	for (vector<string>::iterator t = symbols.begin();
 	     t != symbols.end(); t++) {
 		res.push_back(*t);
 	}
 
+	// successful operation.  Return JSON output.
 	string body = res.write(2) + "\n";
 
 	evbuffer_add(req->buffer_out, body.c_str(), body.size());
@@ -481,9 +538,11 @@ void reqInfo(evhtp_request_t * req, void * a)
 {
 	UniValue obj(UniValue::VOBJ);
 
+	// set some static information about this server
 	obj.pushKV("name", "obsrv");
 	obj.pushKV("version", 100);
 
+	// successful operation.  Return JSON output.
 	string body = obj.write(2) + "\n";
 
 	evbuffer_add(req->buffer_out, body.c_str(), body.size());
@@ -529,6 +588,7 @@ static const struct HttpApiEntry apiRegistry[] = {
 
 int main(int argc, char ** argv)
 {
+	// parse command line
 	error_t argp_rc = argp_parse(&argp, argc, argv, 0, NULL, NULL);
 	if (argp_rc) {
 		fprintf(stderr, "%s: argp_parse failed: %s\n",
@@ -536,23 +596,30 @@ int main(int argc, char ** argv)
 		return EXIT_FAILURE;
 	}
 
+	// initialize libevent, libevhtp
 	evbase_t * evbase = event_base_new();
 	evhtp_t  * htp    = evhtp_new(evbase, NULL);
 	evhtp_callback_t *cb = NULL;
 
+	// default callback, if not matched
 	evhtp_set_gencb(htp, reqDefault, NULL);
 
+	// register our list of API calls and their handlers
 	for (unsigned int i = 0; i < ARRAY_SIZE(apiRegistry); i++) {
 		struct HttpApiEntry *apiEnt = (struct HttpApiEntry *) &apiRegistry[i];
+		// register evhtp hook
 		cb = evhtp_set_cb(htp,
 				  apiRegistry[i].path,
 				  apiRegistry[i].cb, apiEnt);
+
+		// set standard per-callback initialization hook
 		evhtp_callback_set_hook(cb, evhtp_hook_on_headers,
 			apiRegistry[i].wantInput ?
 				((evhtp_hook) upload_headers_cb) :
 				((evhtp_hook) no_upload_headers_cb), apiEnt);
 	}
 
+	// bind to socket and start server main loop
 	evhtp_bind_socket(htp, opt_bind_address, opt_bind_port, 1024);
 	event_base_loop(evbase, 0);
 	return 0;
