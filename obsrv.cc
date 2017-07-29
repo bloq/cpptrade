@@ -20,12 +20,18 @@ static const char doc[] =
 "obsrv - order book server";
 
 static struct argp_option options[] = {
+	{ "bind-address", 1001, "IP/hostname", 0,
+	  "Address to which HTTP server is bound" },
+	{ "bind-port", 1002, "port", 0,
+	  "TCP port to which HTTP server is bound" },
 	{ }
 };
 
 static error_t parse_opt (int key, char *arg, struct argp_state *state);
 static const struct argp argp = { options, parse_opt, NULL, doc };
 
+static const char *opt_bind_address = "0.0.0.0";
+static uint16_t opt_bind_port = 7979;
 
 static int64_t
 get_content_length (const evhtp_request_t *req)
@@ -165,6 +171,20 @@ void reqRoot(evhtp_request_t * req, void * a)
 static error_t parse_opt (int key, char *arg, struct argp_state *state)
 {
 	switch (key) {
+	case 1001:	// --bind-address
+		opt_bind_address = arg;
+		break;
+
+	case 1002:	// --bind-port
+		{
+		int v = atoi(arg);
+		if ((v > 0) && (v < 65536))
+			opt_bind_port = (uint16_t) v;
+		else
+			argp_usage(state);
+		break;
+		}
+
 	case ARGP_KEY_END:
 		break;
 
@@ -196,7 +216,7 @@ int main(int argc, char ** argv)
 	cb = evhtp_set_cb(htp, "/post", reqPost, NULL);
 	evhtp_callback_set_hook(cb, evhtp_hook_on_headers, (evhtp_hook) upload_headers_cb, NULL);
 
-	evhtp_bind_socket(htp, "0.0.0.0", 7979, 1024);
+	evhtp_bind_socket(htp, opt_bind_address, opt_bind_port, 1024);
 	event_base_loop(evbase, 0);
 	return 0;
 }
