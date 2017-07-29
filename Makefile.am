@@ -1,10 +1,13 @@
 
-AM_CPPFLAGS = $(PTHREAD_CFLAGS)
+AM_CPPFLAGS = -std=c++11 $(PTHREAD_CFLAGS)
 
 sbin_PROGRAMS = obsrv
 
 obsrv_SOURCES = \
-	obsrv.cc
+	obsrv.cc \
+	Market.h Market.cc \
+	OrderFwd.h Order.h Order.cc \
+	Util.h Util.cc
 
 obsrv_LDFLAGS = $(PTHREAD_CFLAGS) $(OPENSSL_LDFLAGS)
 obsrv_LDADD = \

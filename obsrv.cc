@@ -7,8 +7,10 @@
 #include <argp.h>
 #include <evhtp.h>
 #include <assert.h>
+#include "Market.h"
 
 using namespace std;
+using namespace orderentry;
 
 class ReqState {
 public:
@@ -32,6 +34,8 @@ static const struct argp argp = { options, parse_opt, NULL, doc };
 
 static const char *opt_bind_address = "0.0.0.0";
 static uint16_t opt_bind_port = 7979;
+
+static Market market;
 
 static int64_t
 get_content_length (const evhtp_request_t *req)
