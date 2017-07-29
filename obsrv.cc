@@ -3,11 +3,14 @@
 
 #include <string>
 #include <vector>
+#include <map>
+#include <locale>
 #include <stdio.h>
 #include <univalue.h>
 #include <time.h>
 #include <argp.h>
 #include <evhtp.h>
+#include <ctype.h>
 #include <assert.h>
 #include "Market.h"
 
@@ -54,6 +57,29 @@ static const char *opt_bind_address = "0.0.0.0";
 static uint16_t opt_bind_port = 7979;
 
 static Market market;
+
+static bool validSymbol(const std::string& sym)
+{
+	if ((sym.size() == 0) || (sym.size() > 16))
+		return false;
+
+	for (size_t i = 0; i < sym.size(); i++) {
+		char ch = sym[i];
+		if (!isalpha(ch) || !isupper(ch))
+			return false;
+	}
+
+	return true;
+}
+
+static bool validBookType(const std::string& btype)
+{
+	if ((btype != "simple") &&
+	    (btype != "depth"))
+		return false;
+
+	return true;
+}
 
 static int64_t
 get_content_length (const evhtp_request_t *req)
@@ -206,16 +232,37 @@ void reqDefault(evhtp_request_t * req, void * a)
 	evhtp_send_reply(req, EVHTP_RES_NOTFOUND);
 }
 
-void reqPost(evhtp_request_t * req, void * arg)
+void reqMarketAdd(evhtp_request_t * req, void * arg)
 {
 	ReqState *state = (ReqState *) arg;
 	assert(state != NULL);
 
+	std::map<std::string,UniValue::VType> apiSchema;
+	apiSchema["symbol"] = UniValue::VSTR;
+	apiSchema["booktype"] = UniValue::VSTR;
+
 	UniValue jval;
-	if (!jval.read(state->body)) {
+	if (!jval.read(state->body) ||
+	    !jval.checkObject(apiSchema)) {
 		evhtp_send_reply(req, EVHTP_RES_BADREQ);
 		return;
 	}
+
+	string inSymbol = jval["symbol"].getValStr();
+	string inBookType = jval["booktype"].getValStr();
+
+	if (!validSymbol(inSymbol) ||
+	    !validBookType(inBookType)) {
+		evhtp_send_reply(req, EVHTP_RES_BADREQ);
+		return;
+	}
+
+	if (market.symbolIsDefined(inSymbol)) {
+		evhtp_send_reply(req, EVHTP_RES_FORBIDDEN);
+		return;
+	}
+
+	market.addBook(inSymbol, (inBookType == "depth"));
 
 	UniValue obj(true);
 
@@ -285,8 +332,8 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 
 static const struct HttpApiEntry apiRegistry[] = {
 	{ "/info", reqInfo, false, false },
+	{ "/marketAdd", reqMarketAdd, true, true },
 	{ "/marketList", reqMarketList, false, false },
-	{ "/post", reqPost, true, true },
 };
 
 int main(int argc, char ** argv)
