@@ -58,6 +58,16 @@ get_content_length (const evhtp_request_t *req)
     return strtoll (content_len_str, NULL, 10);
 }
 
+static std::string addressToStr(const struct sockaddr *sockaddr,
+				socklen_t socklen)
+{
+        char name[1025] = "";
+        if (!getnameinfo(sockaddr, socklen, name, sizeof(name), NULL, 0, NI_NUMERICHOST))
+            return std::string(name);
+
+	return string("");
+}
+
 static std::string formatTime(const std::string& fmt, time_t t)
 {
 	struct tm tm;
@@ -85,6 +95,9 @@ logRequest(evhtp_request_t *req, ReqState *state)
 	assert(req != NULL);
 	assert(state != NULL);
 
+	string addrStr = addressToStr(req->conn->saddr,
+				      sizeof(struct sockaddr)); // TODO verify
+
 	struct tm tm;
 	gmtime_r(&state->tstamp.tv_sec, &tm);
 
@@ -92,11 +105,12 @@ logRequest(evhtp_request_t *req, ReqState *state)
 	htp_method method = evhtp_request_get_method(req);
 	const char *method_name = htparser_get_methodstr_m(method);
 
-	printf("%s %lld %s %s\n",
+	printf("%s - - [%s] \"%s %s\" ? %lld\n",
+		addrStr.c_str(),
 		timeStr.c_str(),
-		(long long) get_content_length(req),
 		method_name,
-		req->uri->path->full);
+		req->uri->path->full,
+		(long long) get_content_length(req));
 }
 
 static evhtp_res
