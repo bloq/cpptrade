@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <univalue.h>
 #include <time.h>
+#include <argp.h>
 #include <evhtp.h>
 #include <assert.h>
 
@@ -14,6 +15,17 @@ public:
 	string	body;
 	string	path;
 };
+
+static const char doc[] =
+"obsrv - order book server";
+
+static struct argp_option options[] = {
+	{ }
+};
+
+static error_t parse_opt (int key, char *arg, struct argp_state *state);
+static const struct argp argp = { options, parse_opt, NULL, doc };
+
 
 static int64_t
 get_content_length (const evhtp_request_t *req)
@@ -150,9 +162,28 @@ void reqRoot(evhtp_request_t * req, void * a)
 	evbuffer_add(req->buffer_out, body.c_str(), body.size());
 	evhtp_send_reply(req, EVHTP_RES_OK);
 }
+static error_t parse_opt (int key, char *arg, struct argp_state *state)
+{
+	switch (key) {
+	case ARGP_KEY_END:
+		break;
+
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+
+	return 0;
+}
 
 int main(int argc, char ** argv)
 {
+	error_t argp_rc = argp_parse(&argp, argc, argv, 0, NULL, NULL);
+	if (argp_rc) {
+		fprintf(stderr, "%s: argp_parse failed: %s\n",
+			argv[0], strerror(argp_rc));
+		return EXIT_FAILURE;
+	}
+
 	evbase_t * evbase = event_base_new();
 	evhtp_t  * htp    = evhtp_new(evbase, NULL);
 	evhtp_callback_t *cb = NULL;
