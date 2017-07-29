@@ -129,11 +129,7 @@ bool
 Market::apply(const std::vector<std::string> & tokens)
 {
     const std::string & command = tokens[0];
-    if (command == "CANCEL" || command == "C")
-    {
-        return doCancel(tokens, 1);
-    }
-    else if(command == "MODIFY" || command == "M")
+    if(command == "MODIFY" || command == "M")
     {
         return doModify(tokens, 1);
     }
@@ -158,15 +154,15 @@ void Market::orderSubmit(OrderBookPtr book, OrderPtr order,
 
 ///////////
 // CANCEL
-bool
-Market::doCancel(const std::vector<std::string> & tokens, size_t position)
+bool Market::orderCancel(const std::string & orderIdStr)
 {
     OrderPtr order;
     OrderBookPtr book;
-    if(!findExistingOrder(tokens, position, order, book))
+    if (!findExistingOrder(orderIdStr, order, book))
     {
         return false;
     }
+
     out() << "Requesting Cancel: " << *order << std::endl;
     book->cancel(order);
     return true;
@@ -179,7 +175,7 @@ Market::doModify(const std::vector<std::string> & tokens, size_t position)
 {
     OrderPtr order;
     OrderBookPtr book;
-    if(!findExistingOrder(tokens, position, order, book))
+    if(!findExistingOrder(tokens[0], order, book))
     {
         return false;
     }
@@ -431,43 +427,6 @@ Market::findBook(const std::string & symbol)
         result = entry->second;
     }
     return result;
-}
-
-bool Market::findExistingOrder(const std::vector<std::string> & tokens, size_t & position, OrderPtr & order, OrderBookPtr & book)
-{
-    ////////////////
-    // Order ID
-    std::string orderId = nextToken(tokens, position);
-    trim(orderId);
-    if(orderId.empty())
-    {
-        orderId = promptForString("Order Id#");
-        trim(orderId);
-    }
-    // discard leading # if any
-    if(orderId[0] == '#')
-    {
-        orderId = orderId.substr(1);
-        trim(orderId);
-        if(orderId.empty())
-        {
-            out() << "--Expecting #orderID" << std::endl;
-            return false;
-        }
-    }
-
-    if(orderId[0] == '-') // relative addressing
-    {
-        int32_t orderOffset = toInt32(orderId);
-        if(orderOffset == INVALID_INT32)
-        {
-            out() << "--Expecting orderID or offset" << std::endl;
-            return false;
-        }
-        uint32_t orderNumber = orderIdSeed_  + 1 + orderOffset;
-        orderId = std::to_string(orderNumber);
-    }
-    return findExistingOrder(orderId, order, book);
 }
 
 bool Market::findExistingOrder(const std::string & orderId, OrderPtr & order, OrderBookPtr & book)

@@ -306,6 +306,32 @@ void reqOrderAdd(evhtp_request_t * req, void * arg)
 	evhtp_send_reply(req, EVHTP_RES_OK);
 }
 
+void reqOrderCancel(evhtp_request_t * req, void * arg)
+{
+	ReqState *state = (ReqState *) arg;
+	assert(state != NULL);
+
+	std::map<std::string,UniValue::VType> apiSchema;
+	apiSchema["order_id"] = UniValue::VSTR;
+
+	UniValue jval;
+	if (!parseBySchema(state, apiSchema, jval)) {
+		evhtp_send_reply(req, EVHTP_RES_BADREQ);
+		return;
+	}
+
+	string orderIdStr = jval["order_id"].getValStr();
+
+	bool rc = market.orderCancel(orderIdStr);
+
+	UniValue res(rc);
+
+	string body = res.write(2) + "\n";
+
+	evbuffer_add(req->buffer_out, body.c_str(), body.size());
+	evhtp_send_reply(req, EVHTP_RES_OK);
+}
+
 void reqMarketAdd(evhtp_request_t * req, void * arg)
 {
 	ReqState *state = (ReqState *) arg;
@@ -408,6 +434,7 @@ static const struct HttpApiEntry apiRegistry[] = {
 	{ "/marketAdd", reqMarketAdd, true, true },
 	{ "/marketList", reqMarketList, false, false },
 	{ "/orderAdd", reqOrderAdd, true, true },
+	{ "/orderCancel", reqOrderCancel, true, true },
 };
 
 int main(int argc, char ** argv)
