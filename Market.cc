@@ -159,102 +159,6 @@ void Market::getSymbols(std::vector<std::string> & symbols)
         }
 }
 
-///////////
-// DISPLAY
-bool
-Market::doDisplay(const std::vector<std::string> & tokens, size_t pos)
-{
-    bool verbose = false;
-    // see if first token could be an order id.
-    // todo: handle prompted imput!
-    std::string parameter = nextToken(tokens, pos);
-    if(parameter.empty())
-    {
-        parameter = promptForString("+ or #OrderId or -orderOffset or symbol or \"ALL\"");
-    }
-    else
-    {
-        --pos; // Don't consume this parameter yet.
-    }
-    if(parameter[0] == '+')
-    {
-        verbose = true;
-        if(parameter.length() > 1)
-        {
-            parameter = parameter.substr(1);
-        }
-        else
-        {
-            ++pos; // now we can consume the first parameter (whether or not it's there!)
-            parameter = nextToken(tokens, pos);
-            if(parameter.empty())
-            {
-                parameter = promptForString("#OrderId or -orderOffset or symbol or \"ALL\"");
-            }
-            else
-            {
-                --pos; // Don't consume this parameter yet.
-            }
-        }
-    }
-    if(parameter[0] == '#' || parameter[0] == '-' || isdigit(parameter[0]))
-    {
-        OrderPtr order;
-        OrderBookPtr book;
-        if(findExistingOrder(parameter, order, book))
-        {
-            out() << *order << std::endl;
-            return true;
-        }
-    }
-
-    // Not an order id.  Try for a symbol:
-    std::string symbol = parameter;
-    if(symbolIsDefined(symbol))
-    {
-        for(auto pOrder = orders_.begin(); pOrder != orders_.end(); ++pOrder)
-        {
-            const OrderPtr & order = pOrder->second;
-            if(order->symbol() == symbol)
-            {
-                out() << order->verbose(verbose) << std::endl;
-                order->verbose(false);
-            }
-        }
-        auto book = findBook(symbol);
-        if(!book)
-        {
-            out() << "--No order book for symbol" << symbol << std::endl;
-        }
-        else
-        {
-            book->log(out());
-        }
-        return true;
-    }
-    else if( symbol == "ALL")
-    {
-        for(auto pOrder = orders_.begin(); pOrder != orders_.end(); ++pOrder)
-        {
-            const OrderPtr & order = pOrder->second;
-            out() << order->verbose(verbose) << std::endl;
-            order->verbose(false);
-        }
-
-        for(auto pBook = books_.begin(); pBook != books_.end(); ++pBook)
-        {
-            out() << "Order book for " << pBook->first << std::endl;
-            pBook->second->log(out());
-        }
-        return true;
-    }
-    else
-    {
-        out() << "--Unknown symbol: " << symbol << std::endl;
-    }
-    return false;
-}
-
 /////////////////////////////
 // Order book interactions
 
@@ -328,14 +232,14 @@ void
 Market::on_accept(const OrderPtr& order)
 {
     order->onAccepted();
-    out() << "\tAccepted: " <<*order<< std::endl;
+    out() << "\tEvent:Accepted: " <<*order<< std::endl;
 }
 
 void 
 Market::on_reject(const OrderPtr& order, const char* reason)
 {
     order->onRejected(reason);
-    out() << "\tRejected: " <<*order<< ' ' << reason << std::endl;
+    out() << "\tEvent:Rejected: " <<*order<< ' ' << reason << std::endl;
 
 }
 
@@ -347,7 +251,7 @@ Market::on_fill(const OrderPtr& order,
 {
     order->onFilled(fill_qty, fill_cost);
     matched_order->onFilled(fill_qty, fill_cost);
-    out() << (order->is_buy() ? "\tBought: " : "\tSold: ") 
+    out() << (order->is_buy() ? "\tEvent:Fill-Bought: " : "\tEvent:Fill-Sold: ") 
         << fill_qty << " Shares for " << fill_cost << ' ' <<*order<< std::endl;
     out() << (matched_order->is_buy() ? "\tBought: " : "\tSold: ") 
         << fill_qty << " Shares for " << fill_cost << ' ' << *matched_order << std::endl;
@@ -357,13 +261,13 @@ void
 Market::on_cancel(const OrderPtr& order)
 {
     order->onCancelled();
-    out() << "\tCanceled: " << *order<< std::endl;
+    out() << "\tEvent:Canceled: " << *order<< std::endl;
 }
 
 void Market::on_cancel_reject(const OrderPtr& order, const char* reason)
 {
     order->onCancelRejected(reason);
-    out() << "\tCancel Reject: " <<*order<< ' ' << reason << std::endl;
+    out() << "\tEvent:Cancel Reject: " <<*order<< ' ' << reason << std::endl;
 }
 
 void Market::on_replace(const OrderPtr& order, 
@@ -371,7 +275,7 @@ void Market::on_replace(const OrderPtr& order,
     liquibook::book::Price new_price)
 {
     order->onReplaced(size_delta, new_price);
-    out() << "\tModify " ;
+    out() << "\tEvent:Modify " ;
     if(size_delta != liquibook::book::SIZE_UNCHANGED)
     {
         out() << " QUANTITY  += " << size_delta;
@@ -387,7 +291,7 @@ void
 Market::on_replace_reject(const OrderPtr& order, const char* reason)
 {
     order->onReplaceRejected(reason);
-    out() << "\tReplace Reject: " <<*order<< ' ' << reason << std::endl;
+    out() << "\tEvent:Replace Reject: " <<*order<< ' ' << reason << std::endl;
 }
 
 ////////////////////////////////////
@@ -398,7 +302,7 @@ Market::on_trade(const OrderBook* book,
     liquibook::book::Quantity qty, 
     liquibook::book::Cost cost)
 {
-    out() << "\tTrade: " << qty <<  ' ' << book->symbol() << " Cost "  << cost  << std::endl;
+    out() << "\tEvent:Trade: " << qty <<  ' ' << book->symbol() << " Cost "  << cost  << std::endl;
 }
 
 /////////////////////////////////////////
@@ -407,7 +311,7 @@ Market::on_trade(const OrderBook* book,
 void 
 Market::on_order_book_change(const OrderBook* book)
 {
-    out() << "\tBook Change: " << ' ' << book->symbol() << std::endl;
+    out() << "\tEvent:Book Change: " << ' ' << book->symbol() << std::endl;
 }
 
 
@@ -417,7 +321,7 @@ Market::on_order_book_change(const OrderBook* book)
 void 
 Market::on_bbo_change(const DepthOrderBook * book, const BookDepth * depth)
 {
-    out() << "\tBBO Change: " << ' ' << book->symbol() 
+    out() << "\tEvent:BBO Change: " << ' ' << book->symbol() 
         << (depth->changed() ? " Changed" : " Unchanged")
         << " Change Id: " << depth->last_change()
         << " Published: " << depth->last_published_change()
@@ -430,7 +334,7 @@ Market::on_bbo_change(const DepthOrderBook * book, const BookDepth * depth)
 void 
 Market::on_depth_change(const DepthOrderBook * book, const BookDepth * depth)
 {
-    out() << "\tDepth Change: " << ' ' << book->symbol();
+    out() << "\tEvent:Depth Change: " << ' ' << book->symbol();
     out() << (depth->changed() ? " Changed" : " Unchanged")
         << " Change Id: " << depth->last_change()
         << " Published: " << depth->last_published_change();

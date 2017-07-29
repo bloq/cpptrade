@@ -99,10 +99,6 @@ public:
     void on_depth_change(const DepthOrderBook * book, const BookDepth * depth);
 
 public:
-    ////////////////////////////////////
-    // Command implementatiokns
-    bool doDisplay(const std::vector<std::string> & tokens, size_t position);
-
     ////////////////////////
     // Order book interactions
     bool symbolIsDefined(const std::string & symbol);
