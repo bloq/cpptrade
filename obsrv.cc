@@ -12,11 +12,42 @@ using namespace std;
 class ReqState {
 public:
 	string	body;
+	string	path;
 };
 
-void reqDefault(evhtp_request_t * req, void * a)
+static int64_t
+get_content_length (const evhtp_request_t *req)
 {
-	evhtp_send_reply(req, EVHTP_RES_NOTFOUND);
+    assert(req != NULL);
+    const char *content_len_str = evhtp_kv_find (req->headers_in, "Content-Length");
+    if (!content_len_str) {
+        return -1;
+    }
+
+    return strtoll (content_len_str, NULL, 10);
+}
+
+static void
+logRequest(evhtp_request_t *req, ReqState *state)
+{
+	assert(req != NULL);
+	assert(state != NULL);
+
+	time_t t = time(NULL);
+	struct tm tm;
+	gmtime_r(&t, &tm);
+
+	char timeStr[80];
+	strftime(timeStr, sizeof(timeStr), "%FT%TZ", &tm);
+
+	htp_method method = evhtp_request_get_method(req);
+	const char *method_name = htparser_get_methodstr_m(method);
+
+	printf("%s %lld %s %s\n",
+		timeStr,
+		(long long) get_content_length(req),
+		method_name,
+		req->uri->path->full);
 }
 
 static evhtp_res
@@ -38,43 +69,16 @@ upload_read_cb(evhtp_request_t * req, evbuf_t * buf, void * arg)
 }
 
 static evhtp_res
-upload_finish_cb(evhtp_request_t * req, void * arg)
+req_finish_cb(evhtp_request_t * req, void * arg)
 {
 	ReqState *state = (ReqState *) arg;
 	assert(state != NULL);
 
+	logRequest(req, state);
+
 	delete state;
 
 	return EVHTP_RES_OK;
-}
-
-static int64_t
-get_content_length (const evhtp_request_t *req)
-{
-    assert(req != NULL);
-    const char *content_len_str = evhtp_kv_find (req->headers_in, "Content-Length");
-    if (!content_len_str) {
-        return -1;
-    }
-
-    return strtoll (content_len_str, NULL, 10);
-}
-
-static void
-logRequest(evhtp_request_t *req)
-{
-	time_t t = time(NULL);
-	struct tm tm;
-	gmtime_r(&t, &tm);
-
-	char timeStr[80];
-	strftime(timeStr, sizeof(timeStr), "%FT%TZ", &tm);
-
-	htp_method method = evhtp_request_get_method(req);
-	const char *method_name = htparser_get_methodstr_m(method);
-
-	printf("%s %lld %s\n", timeStr, (long long) get_content_length(req),
-		method_name);
 }
 
 static evhtp_res
@@ -89,9 +93,7 @@ upload_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
 
 	req->cbarg = state;
 	evhtp_request_set_hook (req, evhtp_hook_on_read, (evhtp_hook) upload_read_cb, state);
-	evhtp_request_set_hook (req, evhtp_hook_on_request_fini, (evhtp_hook) upload_finish_cb, state);
-
-	logRequest(req);
+	evhtp_request_set_hook (req, evhtp_hook_on_request_fini, (evhtp_hook) req_finish_cb, state);
 
 	return EVHTP_RES_OK;
 }
@@ -107,11 +109,14 @@ upload_no_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
 	assert(state != NULL);
 
 	req->cbarg = state;
-	evhtp_request_set_hook (req, evhtp_hook_on_request_fini, (evhtp_hook) upload_finish_cb, state);
-
-	logRequest(req);
+	evhtp_request_set_hook (req, evhtp_hook_on_request_fini, (evhtp_hook) req_finish_cb, state);
 
 	return EVHTP_RES_OK;
+}
+
+void reqDefault(evhtp_request_t * req, void * a)
+{
+	evhtp_send_reply(req, EVHTP_RES_NOTFOUND);
 }
 
 void reqPost(evhtp_request_t * req, void * arg)
