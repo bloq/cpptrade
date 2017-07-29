@@ -107,7 +107,7 @@ public:
     // Implement DepthListener interface
     void on_depth_change(const DepthOrderBook * book, const BookDepth * depth);
 
-private:
+public:
     ////////////////////////////////////
     // Command implementatiokns
     bool doAdd(const std::string & side, const std::vector<std::string> & tokens, size_t pos);
