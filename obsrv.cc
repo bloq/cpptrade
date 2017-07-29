@@ -6,6 +6,7 @@
 #include <map>
 #include <locale>
 #include <stdio.h>
+#include <stdlib.h>
 #include <univalue.h>
 #include <time.h>
 #include <argp.h>
@@ -56,6 +57,7 @@ static const struct argp argp = { options, parse_opt, NULL, doc };
 static const char *opt_bind_address = "0.0.0.0";
 static uint16_t opt_bind_port = 7979;
 
+static uint32_t nextOrderId = 1;
 static Market market;
 
 static bool validSymbol(const std::string& sym)
@@ -243,6 +245,67 @@ static bool parseBySchema(ReqState *state,
 	return true;
 }
 
+void reqOrderAdd(evhtp_request_t * req, void * arg)
+{
+	ReqState *state = (ReqState *) arg;
+	assert(state != NULL);
+
+	std::map<std::string,UniValue::VType> apiSchema;
+	apiSchema["symbol"] = UniValue::VSTR;
+	apiSchema["qty"] = UniValue::VNUM;
+	apiSchema["price"] = UniValue::VNUM;
+	apiSchema["is_buy"] = UniValue::VBOOL;
+
+	UniValue jval;
+	if (!parseBySchema(state, apiSchema, jval)) {
+		evhtp_send_reply(req, EVHTP_RES_BADREQ);
+		return;
+	}
+
+	string symbol = jval["symbol"].getValStr();
+	liquibook::book::Quantity quantity = atoll(jval["qty"].getValStr().c_str());
+	liquibook::book::Price price = atoll(jval["price"].getValStr().c_str());
+	bool isBuy = jval["is_buy"].getBool();
+	bool aon = jval["aon"].getBool();
+	bool ioc = jval["ioc"].getBool();
+	liquibook::book::Price stopPrice = 0;
+	if (jval.exists("stop"))
+		stopPrice = atoll(jval["stop"].getValStr().c_str());
+
+	if (!validSymbol(symbol)) {
+		evhtp_send_reply(req, EVHTP_RES_BADREQ);
+		return;
+	}
+
+	auto book = market.findBook(symbol);
+	if (!book) {
+		evhtp_send_reply(req, EVHTP_RES_FORBIDDEN);
+		return;
+	}
+
+	uint32_t thisOrderId = nextOrderId++;
+	std::string orderId = std::to_string(thisOrderId);
+
+	OrderPtr order = std::make_shared<Order>(orderId, isBuy, quantity, symbol, price, stopPrice, aon, ioc);
+
+	const liquibook::book::OrderConditions AON(liquibook::book::oc_all_or_none);
+	const liquibook::book::OrderConditions IOC(liquibook::book::oc_immediate_or_cancel);
+	const liquibook::book::OrderConditions NOC(liquibook::book::oc_no_conditions);
+
+	const liquibook::book::OrderConditions conditions = 
+	    (aon ? AON : NOC) | (ioc ? IOC : NOC);
+
+	market.orderSubmit(book, order, orderId, conditions);
+
+	UniValue res(UniValue::VOBJ);
+	res.pushKV("orderId", (uint64_t) thisOrderId);
+
+	string body = res.write(2) + "\n";
+
+	evbuffer_add(req->buffer_out, body.c_str(), body.size());
+	evhtp_send_reply(req, EVHTP_RES_OK);
+}
+
 void reqMarketAdd(evhtp_request_t * req, void * arg)
 {
 	ReqState *state = (ReqState *) arg;
@@ -344,6 +407,7 @@ static const struct HttpApiEntry apiRegistry[] = {
 	{ "/info", reqInfo, false, false },
 	{ "/marketAdd", reqMarketAdd, true, true },
 	{ "/marketList", reqMarketList, false, false },
+	{ "/orderAdd", reqOrderAdd, true, true },
 };
 
 int main(int argc, char ** argv)

@@ -110,7 +110,6 @@ public:
 public:
     ////////////////////////////////////
     // Command implementatiokns
-    bool doAdd(const std::string & side, const std::vector<std::string> & tokens, size_t pos);
     bool doCancel(const std::vector<std::string> & tokens, size_t position);
     bool doModify(const std::vector<std::string> & tokens, size_t position);
     bool doDisplay(const std::vector<std::string> & tokens, size_t position);
@@ -118,6 +117,9 @@ public:
     ////////////////////////
     // Order book interactions
     bool symbolIsDefined(const std::string & symbol);
+    void orderSubmit(OrderBookPtr book, OrderPtr order,
+		     const std::string& orderIdStr,
+		     liquibook::book::OrderConditions conditions);
     OrderBookPtr findBook(const std::string & symbol);
     OrderBookPtr addBook(const std::string & symbol, bool useDepthBook);
     void getSymbols(std::vector<std::string> & symbols);

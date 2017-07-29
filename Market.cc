@@ -129,15 +129,7 @@ bool
 Market::apply(const std::vector<std::string> & tokens)
 {
     const std::string & command = tokens[0];
-    if(command == "BUY" || command == "B")
-    {
-        return doAdd("BUY", tokens, 1);
-    }
-    if(command == "SELL" || command == "S")
-    {
-        return doAdd("SELL", tokens, 1);
-    }
-    else if (command == "CANCEL" || command == "C")
+    if (command == "CANCEL" || command == "C")
     {
         return doCancel(tokens, 1);
     }
@@ -153,169 +145,15 @@ Market::apply(const std::vector<std::string> & tokens)
 }
 
 
-////////
-// ADD
-bool 
-Market::doAdd(const  std::string & side, const std::vector<std::string> & tokens, size_t pos)
+void Market::orderSubmit(OrderBookPtr book, OrderPtr order,
+			 const std::string& orderIdStr,
+			 liquibook::book::OrderConditions conditions)
 {
-    //////////////
-    // Quantity
-    liquibook::book::Quantity quantity;
-    std::string qtyStr = nextToken(tokens, pos);
-    if(!qtyStr.empty())
-    {
-        quantity = toUint32(qtyStr);
-    }
-    else
-    {
-        quantity = promptForUint32("Quantity");
-    }
-    // sanity check
-    if(quantity == 0 || quantity > 1000000000)
-    {
-        out() << "--Expecting quantity" << std::endl;
-        return false;
-    }
-
-    //////////////
-    // SYMBOL
-    std::string symbol = nextToken(tokens, pos);
-    if(symbol.empty())
-    {
-        symbol = promptForString("Symbol");
-    }
-    if(!symbolIsDefined(symbol))
-    {
-        if(symbol[0] == '+' || symbol[0] == '!')
-        {
-            bool useDepth = symbol[0] == '!';
-            symbol = symbol.substr(1);
-            if(!symbolIsDefined(symbol))
-            {
-                addBook(symbol, useDepth);
-            }
-        }
-        else
-        {
-            std::string bookType;
-            while(bookType != "S" 
-              && bookType != "D" 
-              && bookType != "N")
-            {
-              bookType = promptForString(
-              "New Symbol " + symbol +  
-              ". \nAdd [S]imple book, or [D]epth book, or 'N' to cancel request.\n[SDN}");
-            }
-            if(bookType == "N")
-            {
-                out() << "Request ignored" << std::endl;
-                return false;
-            }
-            bool useDepth = bookType == "D";
-            addBook(symbol, useDepth);
-        }
-    }
-
-    ///////////////
-    // PRICE
-    uint32_t price = 0;
-    std::string priceStr = nextToken(tokens, pos);
-    if(!priceStr.empty())
-    {
-        price = stringToPrice(priceStr);
-    }
-    else
-    {
-        price = promptForPrice("Limit Price or MKT");
-    }
-    if(price > 10000000)
-    {
-        out() << "--Expecting price or MARKET" << std::endl;
-        return false;
-    }
-
-    //////////////////////////
-    // OPTIONS: AON, IOC STOP
-    bool aon = false;
-    bool ioc = false;
-    liquibook::book::Price stopPrice = 0;
-    bool go = false;
-    while(!go)
-    {
-        bool prompted = false;
-        bool optionOk = false;
-        std::string option = nextToken(tokens, pos);
-        if(option.empty())
-        {
-            prompted = true;
-            option = promptForString("AON, or IOC, or STOP, or END");
-        }
-        if(option == ";" || option == "E" || option == "END")
-        {
-            go = true;
-            optionOk = true;
-        }
-        else if(option == "A" || option == "AON")
-        {
-            aon = true;
-            optionOk = true;
-        }
-        else if(option == "I" || option == "IOC")
-        {
-            ioc = true;
-            optionOk = true;
-        }
-        else if(option == "S" || option == "STOP")
-        {
-            std::string stopstr = nextToken(tokens, pos);
-
-            if(!stopstr.empty())
-            {
-                stopPrice = stringToPrice(stopstr);
-            } 
-            else
-            {
-                stopPrice = promptForUint32("Stop Price");
-                prompted = true;
-            }
-            optionOk = stopPrice <= 10000000;
-        }
-        if(!optionOk)
-        {
-            out() << "Unknown option " << option << std::endl;
-            if(!prompted)
-            {
-                out() << "--Expecting AON IOC STOP or END" << std::endl;
-                return false;
-            }
-        }
-    }
-
-    std::string orderId = std::to_string(++orderIdSeed_);
-
-    OrderPtr order = std::make_shared<Order>(orderId, side == "BUY", quantity, symbol, price, stopPrice, aon, ioc);
-
-    const liquibook::book::OrderConditions AON(liquibook::book::oc_all_or_none);
-    const liquibook::book::OrderConditions IOC(liquibook::book::oc_immediate_or_cancel);
-    const liquibook::book::OrderConditions NOC(liquibook::book::oc_no_conditions);
-
-    const liquibook::book::OrderConditions conditions = 
-        (aon ? AON : NOC) | (ioc ? IOC : NOC);
-
-
-    auto book = findBook(symbol);
-    if(!book)
-    {
-        out() << "--No order book for symbol" << symbol << std::endl;
-        return false;
-    }
-
     order->onSubmitted();
     out() << "ADDING order:  " << *order << std::endl;
 
-    orders_[orderId] = order;
+    orders_[orderIdStr] = order;
     book->add(order, conditions);
-    return true;
 }
 
 ///////////
