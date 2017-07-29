@@ -442,6 +442,18 @@ Market::doModify(const std::vector<std::string> & tokens, size_t position)
 }
 
 ///////////
+// getSymbols
+void Market::getSymbols(std::vector<std::string> & symbols)
+{
+	symbols.clear();
+
+        for(auto pBook = books_.begin(); pBook != books_.end(); ++pBook)
+        {
+	    symbols.push_back(pBook->first);
+        }
+}
+
+///////////
 // DISPLAY
 bool
 Market::doDisplay(const std::vector<std::string> & tokens, size_t pos)

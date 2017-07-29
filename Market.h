@@ -120,6 +120,7 @@ public:
     bool symbolIsDefined(const std::string & symbol);
     OrderBookPtr findBook(const std::string & symbol);
     OrderBookPtr addBook(const std::string & symbol, bool useDepthBook);
+    void getSymbols(std::vector<std::string> & symbols);
     bool findExistingOrder(const std::vector<std::string> & tokens, size_t & position, OrderPtr & order, OrderBookPtr & book);
     bool findExistingOrder(const std::string & orderId, OrderPtr & order, OrderBookPtr & book);
 

@@ -225,7 +225,25 @@ void reqPost(evhtp_request_t * req, void * arg)
 	evhtp_send_reply(req, EVHTP_RES_OK);
 }
 
-void reqRoot(evhtp_request_t * req, void * a)
+void reqMarketList(evhtp_request_t * req, void * a)
+{
+	UniValue res(UniValue::VARR);
+
+	vector<string> symbols;
+	market.getSymbols(symbols);
+
+	for (vector<string>::iterator t = symbols.begin();
+	     t != symbols.end(); t++) {
+		res.push_back(*t);
+	}
+
+	string body = res.write(2) + "\n";
+
+	evbuffer_add(req->buffer_out, body.c_str(), body.size());
+	evhtp_send_reply(req, EVHTP_RES_OK);
+}
+
+void reqInfo(evhtp_request_t * req, void * a)
 {
 	UniValue obj(UniValue::VOBJ);
 
@@ -237,6 +255,7 @@ void reqRoot(evhtp_request_t * req, void * a)
 	evbuffer_add(req->buffer_out, body.c_str(), body.size());
 	evhtp_send_reply(req, EVHTP_RES_OK);
 }
+
 static error_t parse_opt (int key, char *arg, struct argp_state *state)
 {
 	switch (key) {
@@ -265,7 +284,8 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 }
 
 static const struct HttpApiEntry apiRegistry[] = {
-	{ "/", reqRoot, false, false },
+	{ "/info", reqInfo, false, false },
+	{ "/marketList", reqMarketList, false, false },
 	{ "/post", reqPost, true, true },
 };
 
