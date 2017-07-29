@@ -14,11 +14,20 @@
 using namespace std;
 using namespace orderentry;
 
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
+struct HttpApiEntry {
+	const char		*path;
+	evhtp_callback_cb	cb;
+	bool			wantInput;
+	bool			jsonInput;
+};
+
 class ReqState {
 public:
-	string		body;
-	string		path;
-	struct timeval	tstamp;
+	string			body;
+	string			path;
+	struct timeval		tstamp;
 
 	ReqState() {
 		gettimeofday(&tstamp, NULL);
@@ -178,7 +187,7 @@ upload_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
 }
 
 static evhtp_res
-upload_no_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
+no_upload_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
 {
 	if (evhtp_request_get_method(req) == htp_method_OPTIONS) {
 		return EVHTP_RES_OK;
@@ -255,6 +264,11 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 	return 0;
 }
 
+static const struct HttpApiEntry apiRegistry[] = {
+	{ "/", reqRoot, false, false },
+	{ "/post", reqPost, true, true },
+};
+
 int main(int argc, char ** argv)
 {
 	error_t argp_rc = argp_parse(&argp, argc, argv, 0, NULL, NULL);
@@ -270,11 +284,16 @@ int main(int argc, char ** argv)
 
 	evhtp_set_gencb(htp, reqDefault, NULL);
 
-	cb = evhtp_set_cb(htp, "/", reqRoot, NULL);
-	evhtp_callback_set_hook(cb, evhtp_hook_on_headers, (evhtp_hook) upload_no_headers_cb, NULL);
-
-	cb = evhtp_set_cb(htp, "/post", reqPost, NULL);
-	evhtp_callback_set_hook(cb, evhtp_hook_on_headers, (evhtp_hook) upload_headers_cb, NULL);
+	for (unsigned int i = 0; i < ARRAY_SIZE(apiRegistry); i++) {
+		struct HttpApiEntry *apiEnt = (struct HttpApiEntry *) &apiRegistry[i];
+		cb = evhtp_set_cb(htp,
+				  apiRegistry[i].path,
+				  apiRegistry[i].cb, apiEnt);
+		evhtp_callback_set_hook(cb, evhtp_hook_on_headers,
+			apiRegistry[i].wantInput ?
+				((evhtp_hook) upload_headers_cb) :
+				((evhtp_hook) no_upload_headers_cb), apiEnt);
+	}
 
 	evhtp_bind_socket(htp, opt_bind_address, opt_bind_port, 1024);
 	event_base_loop(evbase, 0);
