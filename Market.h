@@ -35,15 +35,6 @@ public:
     Market(std::ostream * logFile = &std::cout);
     ~Market();
 
-    /// @brief What to display to user when requesting input
-    static const char * prompt();
-
-    /// @brief Help for user's input
-    static void help(std::ostream & out = std::cout);
-
-    /// @brief Apply a user command that has been parsed into tokens.
-    bool apply(const std::vector<std::string> & tokens);
-
 public:
     /////////////////////////////////////
     // Implement OrderListener interface

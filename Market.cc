@@ -82,61 +82,6 @@ Market::~Market()
 {
 }
 
-const char * 
-Market::prompt()
-{
-    return "\t(B)uy\n\t(S)ell\n\t(M)odify\n\t(C)ancel\n\t(D)isplay\n";
-}
-
-void 
-Market::help(std::ostream & out)
-{
-    out << "Buy: Create a new Buy order and add it to the book\n"
-        << "Sell: Create a new Sell order and add it to the book\n"
-        << "  Arguments for BUY or SELL\n"
-        << "     <Quantity>\n"
-        << "     <Symbol>\n"
-        << "     <Price> or MARKET\n"
-        << "     AON            (optional)\n"
-        << "     IOC            (optional)\n"
-        << "     STOP <Price>   (optional)\n"
-        << "     ;              end of order\n"
-        << std::endl;
-
-    out << "Modify: Request Modify an existing order\n"
-        << "  Arguments:\n"
-        << "     <order#>\n"
-        << "     PRICE <new price>\n"
-        << "     QUANTITY <new initial quantity>\n"
-        << "     ;              end of modify requet\n"
-        << std::endl;
-
-    out << "Cancel: Request cancel an existing order\n"
-        << "  Arguments:\n"
-        << "     <order#>\n"
-        << "     ;              end of cancel request (optional)\n"
-        << std::endl;
-
-    out << "Display: Display status of an existing order\n"
-        << "  Arguments:\n"
-        << "     +       (enable verbose display)\n"
-        << "     <order#> or <symbol> or \"all\"\n"
-        << std::endl;
-
-}
-
-bool 
-Market::apply(const std::vector<std::string> & tokens)
-{
-    const std::string & command = tokens[0];
-    if(command == "DISPLAY" || command == "D")
-    {
-        return doDisplay(tokens, 1);
-    }
-    return false;
-}
-
-
 void Market::orderSubmit(OrderBookPtr book, OrderPtr order,
 			 const std::string& orderIdStr,
 			 liquibook::book::OrderConditions conditions)

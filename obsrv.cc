@@ -279,7 +279,7 @@ void reqOrderAdd(evhtp_request_t * req, void * arg)
 
 	auto book = market.findBook(symbol);
 	if (!book) {
-		evhtp_send_reply(req, EVHTP_RES_FORBIDDEN);
+		evhtp_send_reply(req, EVHTP_RES_NOTFOUND);
 		return;
 	}
 
@@ -365,6 +365,56 @@ void reqOrderCancel(evhtp_request_t * req, void * arg)
 	UniValue res(rc);
 
 	string body = res.write(2) + "\n";
+
+	evbuffer_add(req->buffer_out, body.c_str(), body.size());
+	evhtp_send_reply(req, EVHTP_RES_OK);
+}
+
+void reqOrderBookList(evhtp_request_t * req, void * arg)
+{
+	ReqState *state = (ReqState *) arg;
+	assert(state != NULL);
+
+	std::map<std::string,UniValue::VType> apiSchema;
+	apiSchema["symbol"] = UniValue::VSTR;
+
+	UniValue jval;
+	if (!parseBySchema(state, apiSchema, jval)) {
+		evhtp_send_reply(req, EVHTP_RES_BADREQ);
+		return;
+	}
+
+	string inSymbol = jval["symbol"].getValStr();
+
+	auto book = market.findBook(inSymbol);
+	if (!book) {
+		evhtp_send_reply(req, EVHTP_RES_NOTFOUND);
+		return;
+	}
+
+	UniValue asksArr(UniValue::VARR);
+	const OrderBook::TrackerMap& asks_ = book->asks();
+	for (auto ask = asks_.rbegin(); ask != asks_.rend(); ++ask) {
+		UniValue askObj(UniValue::VOBJ);
+		askObj.pushKV("price", (int64_t) ask->first.price());
+		askObj.pushKV("qty", (int64_t) ask->second.open_qty());
+		asksArr.push_back(askObj);
+	}
+
+	UniValue bidsArr(UniValue::VARR);
+	const OrderBook::TrackerMap& bids_ = book->bids();
+	for (auto bid = bids_.rbegin(); bid != bids_.rend(); ++bid) {
+		UniValue bidObj(UniValue::VOBJ);
+		bidObj.pushKV("price", (int64_t) bid->first.price());
+		bidObj.pushKV("qty", (int64_t) bid->second.open_qty());
+		bidsArr.push_back(bidObj);
+	}
+
+	UniValue obj(UniValue::VOBJ);
+	obj.pushKV("bids", bidsArr);
+	obj.pushKV("asks", asksArr);
+
+	string body = obj.write(2) + "\n";
 
 	evbuffer_add(req->buffer_out, body.c_str(), body.size());
 	evhtp_send_reply(req, EVHTP_RES_OK);
@@ -471,6 +521,7 @@ static const struct HttpApiEntry apiRegistry[] = {
 	{ "/info", reqInfo, false, false },
 	{ "/marketAdd", reqMarketAdd, true, true },
 	{ "/marketList", reqMarketList, false, false },
+	{ "/book", reqOrderBookList, true, true },
 	{ "/orderAdd", reqOrderAdd, true, true },
 	{ "/orderCancel", reqOrderCancel, true, true },
 	{ "/orderModify", reqOrderModify, true, true },
