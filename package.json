@@ -1,0 +1,14 @@
+{
+  "name": "cscpp",
+  "version": "0.0.1",
+  "description": "client server",
+  "license": "UNLICENSED",
+  "main": "testcli.js",
+  "dependencies": {
+    "async": "^2.5.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=6.0.0"
+  }
+}
