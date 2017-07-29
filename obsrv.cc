@@ -232,6 +232,17 @@ void reqDefault(evhtp_request_t * req, void * a)
 	evhtp_send_reply(req, EVHTP_RES_NOTFOUND);
 }
 
+static bool parseBySchema(ReqState *state,
+			  const std::map<std::string,UniValue::VType>& schema,
+			  UniValue& jval)
+{
+	if (!jval.read(state->body) ||
+	    !jval.checkObject(schema))
+		return false;
+
+	return true;
+}
+
 void reqMarketAdd(evhtp_request_t * req, void * arg)
 {
 	ReqState *state = (ReqState *) arg;
@@ -242,8 +253,7 @@ void reqMarketAdd(evhtp_request_t * req, void * arg)
 	apiSchema["booktype"] = UniValue::VSTR;
 
 	UniValue jval;
-	if (!jval.read(state->body) ||
-	    !jval.checkObject(apiSchema)) {
+	if (!parseBySchema(state, apiSchema, jval)) {
 		evhtp_send_reply(req, EVHTP_RES_BADREQ);
 		return;
 	}
