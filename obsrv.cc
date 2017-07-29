@@ -1,4 +1,6 @@
 
+#include "cscpp-config.h"
+
 #include <string>
 #include <vector>
 #include <stdio.h>
@@ -14,12 +16,19 @@ using namespace orderentry;
 
 class ReqState {
 public:
-	string	body;
-	string	path;
+	string		body;
+	string		path;
+	struct timeval	tstamp;
+
+	ReqState() {
+		gettimeofday(&tstamp, NULL);
+	}
 };
 
+#define PROGRAM_NAME "obsrv"
+
 static const char doc[] =
-"obsrv - order book server";
+PROGRAM_NAME " - order book server";
 
 static struct argp_option options[] = {
 	{ "bind-address", 1001, "IP/hostname", 0,
@@ -49,24 +58,42 @@ get_content_length (const evhtp_request_t *req)
     return strtoll (content_len_str, NULL, 10);
 }
 
+static std::string formatTime(const std::string& fmt, time_t t)
+{
+	struct tm tm;
+	gmtime_r(&t, &tm);
+
+	char timeStr[fmt.size() + 256];
+	strftime(timeStr, sizeof(timeStr), fmt.c_str(), &tm);
+
+	return string(timeStr);
+}
+
+static std::string httpDateHdr(time_t t)
+{
+	return formatTime("%a, %d %b %Y %H:%M:%S GMT", t);
+}
+
+static std::string isoTimeStr(time_t t)
+{
+	return formatTime("%FT%TZ", t);
+}
+
 static void
 logRequest(evhtp_request_t *req, ReqState *state)
 {
 	assert(req != NULL);
 	assert(state != NULL);
 
-	time_t t = time(NULL);
 	struct tm tm;
-	gmtime_r(&t, &tm);
+	gmtime_r(&state->tstamp.tv_sec, &tm);
 
-	char timeStr[80];
-	strftime(timeStr, sizeof(timeStr), "%FT%TZ", &tm);
-
+	string timeStr = isoTimeStr(state->tstamp.tv_sec);
 	htp_method method = evhtp_request_get_method(req);
 	const char *method_name = htparser_get_methodstr_m(method);
 
 	printf("%s %lld %s %s\n",
-		timeStr,
+		timeStr.c_str(),
 		(long long) get_content_length(req),
 		method_name,
 		req->uri->path->full);
@@ -103,6 +130,22 @@ req_finish_cb(evhtp_request_t * req, void * arg)
 	return EVHTP_RES_OK;
 }
 
+static void reqInit(evhtp_request_t *req, ReqState *state)
+{
+	evhtp_headers_add_header(req->headers_out,
+		evhtp_header_new("Date",
+			 httpDateHdr(state->tstamp.tv_sec).c_str(),
+			 0, 1));
+
+	const char *serverVer = PROGRAM_NAME "/" PACKAGE_VERSION;
+	evhtp_headers_add_header(req->headers_out,
+		evhtp_header_new("Server", serverVer, 0, 0));
+
+	req->cbarg = state;
+
+	evhtp_request_set_hook (req, evhtp_hook_on_request_fini, (evhtp_hook) req_finish_cb, state);
+}
+
 static evhtp_res
 upload_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
 {
@@ -113,9 +156,9 @@ upload_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
 	ReqState *state = new ReqState();
 	assert(state != NULL);
 
-	req->cbarg = state;
+	reqInit(req, state);
+
 	evhtp_request_set_hook (req, evhtp_hook_on_read, (evhtp_hook) upload_read_cb, state);
-	evhtp_request_set_hook (req, evhtp_hook_on_request_fini, (evhtp_hook) req_finish_cb, state);
 
 	return EVHTP_RES_OK;
 }
@@ -130,8 +173,7 @@ upload_no_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
 	ReqState *state = new ReqState();
 	assert(state != NULL);
 
-	req->cbarg = state;
-	evhtp_request_set_hook (req, evhtp_hook_on_request_fini, (evhtp_hook) req_finish_cb, state);
+	reqInit(req, state);
 
 	return EVHTP_RES_OK;
 }
