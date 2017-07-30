@@ -2,139 +2,7 @@
 
 const http = require('http');
 const Async = require('async');
-
-function callHttp(opts, callback) {
-	var body = '';
-
-	if (!opts.headers)
-		opts.headers = {};
-	if (opts.postData) {
-		opts.headers['Content-Length'] = opts.postData.length.toString();
-	}
-	if (opts.json) {
-		opts.headers['Content-Type'] = 'application/json';
-	}
-
-	const req = http.request(opts, (res) => {
-		if (!opts.isbinary)
-			res.setEncoding('utf8');
-
-		res.on('data', (chunk) => {
-			body += chunk;
-		});
-
-		res.on('end', () => {
-			if (res.statusCode == 404) {
-				callback(null, null);
-				return;
-			}
-			if (res.statusCode != 200) {
-				var e = new Error("HTTP status " +
-						   res.statusCode.toString() +
-						   ": " +
-						   res.statusMessage);
-				callback(e);
-				return;
-			}
-
-			if (!opts.json) {
-				callback(null, body);
-			} else {
-				var jval;
-				try {
-					jval = JSON.parse(body);
-					callback(null, jval);
-				}
-				catch (e) {
-					callback(e);
-					return;
-				}
-			}
-		});
-	});
-
-	req.on('error', (e) => {
-		callback(e);
-		return;
-	});
-
-	if (opts.postData)
-		req.write(opts.postData);
-	req.end();
-}
-
-function ApiClient() {
-	this.httpOpts = {
-		hostname: '127.0.0.1',
-		port: 7979,
-	};
-}
-ApiClient.prototype.info = function(callback) {
-	var opts = JSON.parse(JSON.stringify(this.httpOpts));
-	opts.method = 'GET';
-	opts.path = '/';
-	opts.json = true;
-
-	callHttp(opts, function(err, res) {
-		if (err) { callback(err); return; }
-
-		callback(null, res);
-	});
-};
-
-ApiClient.prototype.depth = function(callback) {
-	var opts = JSON.parse(JSON.stringify(this.httpOpts));
-	opts.method = 'GET';
-	opts.path = '/v1/depth';
-	opts.json = true;
-
-	callHttp(opts, function(err, res) {
-		if (err) { callback(err); return; }
-
-		callback(null, res);
-	});
-};
-
-ApiClient.prototype.book = function(callback) {
-	var opts = JSON.parse(JSON.stringify(this.httpOpts));
-	opts.method = 'GET';
-	opts.path = '/v1/book';
-	opts.json = true;
-
-	callHttp(opts, function(err, res) {
-		if (err) { callback(err); return; }
-
-		callback(null, res);
-	});
-};
-
-ApiClient.prototype.add = function(orderInfo, callback) {
-	var opts = JSON.parse(JSON.stringify(this.httpOpts));
-	opts.method = 'POST';
-	opts.path = '/v1/add';
-	opts.postData = JSON.stringify(orderInfo);
-	opts.json = true;
-
-	callHttp(opts, function(err, res) {
-		if (err) { callback(err); return; }
-
-		callback(null, res);
-	});
-};
-
-ApiClient.prototype.cancel = function(orderInfo, callback) {
-	var opts = JSON.parse(JSON.stringify(this.httpOpts));
-	opts.method = 'POST';
-	opts.path = '/v1/cancel';
-	opts.postData = JSON.stringify(orderInfo);
-	opts.json = true;
-
-	callHttp(opts, function(err, res) {
-		if (err) { callback(err); return; }
-
-		callback(null, res);
-	});
-};
+const ApiClient = require('./apiclient');
 
 function test1(callback) {
 	var cli = new ApiClient();
@@ -149,6 +17,35 @@ function test1(callback) {
 }
 
 function test2(callback) {
+	var cli = new ApiClient();
+
+	var marketInfo = {
+		"symbol": "GOOG",
+		"booktype": "depth",
+	};
+
+	cli.marketAdd(marketInfo, function(err, res) {
+		if (err) { callback(null, false); return; }
+
+		console.log("marketADD:");
+		console.dir(res);
+		callback(null, true);
+	});
+}
+
+function test2b(callback) {
+	var cli = new ApiClient();
+
+	cli.marketList(function(err, res) {
+		if (err) { callback(null, false); return; }
+
+		console.log("marketList:");
+		console.dir(res);
+		callback(null, true);
+	});
+}
+
+function test2x(callback) {
 	var cli = new ApiClient();
 
 	var orderInfo = {
@@ -242,7 +139,8 @@ function test6(callback) {
 
 Async.series({
 	t1: test1,
-//	t2: test2,
+	t2: test2,
+	t2b: test2b,
 //	t2a: test2a,
 //	t3: test3,
 //	t4: test4,
