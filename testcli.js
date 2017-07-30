@@ -4,7 +4,7 @@ const http = require('http');
 const Async = require('async');
 const ApiClient = require('./apiclient');
 
-function test1(callback) {
+function step_info(callback) {
 	var cli = new ApiClient();
 
 	cli.info(function(err, res) {
@@ -16,7 +16,7 @@ function test1(callback) {
 	});
 }
 
-function test2(callback) {
+function step_marketAdd(callback) {
 	var cli = new ApiClient();
 
 	var marketInfo = {
@@ -33,7 +33,7 @@ function test2(callback) {
 	});
 }
 
-function test2b(callback) {
+function step_marketList(callback) {
 	var cli = new ApiClient();
 
 	cli.marketList(function(err, res) {
@@ -45,16 +45,35 @@ function test2b(callback) {
 	});
 }
 
-function test2x(callback) {
+function step_addBuy(callback) {
 	var cli = new ApiClient();
 
 	var orderInfo = {
+		symbol: "GOOG",
 		is_buy: true,
-		price: 1000,
-		qty: 10,
+		price: 100,
+		qty: 100,
 	};
 
-	cli.add(orderInfo, function(err, res) {
+	cli.orderAdd(orderInfo, function(err, res) {
+		if (err) { callback(null, false); return; }
+
+		console.log("ADD:");
+		console.dir(res);
+		callback(null, true);
+	});
+}
+function step_addSell(callback) {
+	var cli = new ApiClient();
+
+	var orderInfo = {
+		symbol: "GOOG",
+		is_buy: false,
+		price: 750,
+		qty: 1000,
+	};
+
+	cli.orderAdd(orderInfo, function(err, res) {
 		if (err) { callback(null, false); return; }
 
 		console.log("ADD:");
@@ -63,40 +82,11 @@ function test2x(callback) {
 	});
 }
 
-function test2a(callback) {
+
+function step_orderBook(callback) {
 	var cli = new ApiClient();
 
-	var orderInfo = {
-		is_buy: true,
-		price: 2000,
-		qty: 10,
-	};
-
-	cli.add(orderInfo, function(err, res) {
-		if (err) { callback(null, false); return; }
-
-		console.log("ADD 2:");
-		console.dir(res);
-		callback(null, true);
-	});
-}
-
-function test3(callback) {
-	var cli = new ApiClient();
-
-	cli.depth(function(err, res) {
-		if (err) { callback(null, false); return; }
-
-		console.log("DEPTH:");
-		console.dir(res);
-		callback(null, true);
-	});
-}
-
-function test4(callback) {
-	var cli = new ApiClient();
-
-	cli.book(function(err, res) {
+	cli.book("GOOG", function(err, res) {
 		if (err) { callback(null, false); return; }
 
 		console.log("BOOK:");
@@ -105,47 +95,19 @@ function test4(callback) {
 	});
 }
 
-function test5(callback) {
-	var cli = new ApiClient();
-
-	var orderInfo = {
-		is_buy: true,
-		price: 1000,
-		qty: 10,
-		order_id: 0,
-	};
-
-
-	cli.cancel(orderInfo, function(err, res) {
-		if (err) { console.dir(err); console.dir(res); callback(null, false); return; }
-
-		console.log("CANCEL:");
-		console.dir(res);
-		callback(null, true);
-	});
-}
-
-function test6(callback) {
-	var cli = new ApiClient();
-
-	cli.book(function(err, res) {
-		if (err) { callback(null, false); return; }
-
-		console.log("BOOK 2:");
-		console.dir(res);
-		callback(null, true);
-	});
-}
-
 Async.series({
-	t1: test1,
-	t2: test2,
-	t2b: test2b,
-//	t2a: test2a,
-//	t3: test3,
-//	t4: test4,
-//	t5: test5,
-//	t6: test6,
+	t0: step_info,
+	t1: step_marketAdd,
+	t2: step_marketList,
+	t3a: step_addBuy,
+	t3b: step_addBuy,
+	t3c: step_addBuy,
+	t3d: step_addBuy,
+	t4a: step_addSell,
+	t4b: step_addSell,
+	t4c: step_addSell,
+	t4d: step_addSell,
+	t5: step_orderBook,
 }, function(err, results) {
 	if (err) { console.log("error: " + err); }
 	console.dir(results);
