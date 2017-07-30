@@ -1,4 +1,6 @@
 {
 	"bindAddress": "0.0.0.0",
-	"bindPort": 7979
+	"bindPort": 7979,
+	"daemon": true,
+	"pidFile": "/var/run/obsrv.pid"
 }

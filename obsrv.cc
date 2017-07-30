@@ -7,13 +7,15 @@
 #include <locale>
 #include <stdio.h>
 #include <stdlib.h>
-#include <univalue.h>
+#include <signal.h>
 #include <time.h>
 #include <sys/time.h>
 #include <argp.h>
+#include <unistd.h>
 #include <evhtp.h>
 #include <ctype.h>
 #include <assert.h>
+#include <univalue.h>
 #include "Market.h"
 #include "Util.h"
 #include "HttpUtil.h"
@@ -24,13 +26,20 @@ using namespace std;
 using namespace orderentry;
 
 #define PROGRAM_NAME "obsrv"
+#define DEFAULT_PID_FILE "/var/run/obsrv.pid"
 
 static const char doc[] =
 PROGRAM_NAME " - order book server";
 
 static struct argp_option options[] = {
-	{ "config", 'c', "json-file", 0,
+	{ "config", 'c', "FILE", 0,
 	  "JSON server configuration file (default: config-obsrv.json)" },
+
+	{ "daemon", 1002, NULL, 0,
+	  "Daemonize; run server in background." },
+
+	{ "pid-file", 'p', "FILE", 0,
+	  "Pathname to which process PID is written (default: " DEFAULT_PID_FILE "; empty string to disable)" },
 	{ }
 };
 
@@ -38,7 +47,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state);
 static const struct argp argp = { options, parse_opt, NULL, doc };
 
 static std::string opt_configfn = "config-obsrv.json";
+static std::string opt_pid_file = DEFAULT_PID_FILE;
+static bool opt_daemon = false;
 static UniValue serverCfg;
+static evbase_t *evbase = NULL;
 
 Market market;
 
@@ -194,7 +206,11 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 {
 	switch (key) {
 	case 'c':
-		opt_configfn.assign(arg);
+		opt_configfn = arg;
+		break;
+
+	case 'p':
+		opt_pid_file = arg;
 		break;
 
 	case ARGP_KEY_END:
@@ -218,8 +234,23 @@ static bool read_config_init()
 		serverCfg.pushKV("bindAddress", "0.0.0.0");
 	if (!serverCfg.exists("bindPort"))
 		serverCfg.pushKV("bindPort", (int64_t) 7979);
+	if (serverCfg.exists("daemon"))
+		opt_daemon = serverCfg["daemon"].getBool();
+	if (serverCfg.exists("pidFile"))
+		opt_pid_file = serverCfg["pidFile"].getValStr();
 
 	return true;
+}
+
+static void pid_file_cleanup(void)
+{
+	if (!opt_pid_file.empty())
+		unlink(opt_pid_file.c_str());
+}
+
+static void shutdown_signal(int signo)
+{
+	event_base_loopbreak(evbase);
 }
 
 static std::vector<struct HttpApiEntry> apiRegistry = {
@@ -246,8 +277,13 @@ int main(int argc, char ** argv)
 	if (!read_config_init())
 		return EXIT_FAILURE;
 
+	// Process auto-cleanup
+	signal(SIGTERM, shutdown_signal);
+	signal(SIGINT, shutdown_signal);
+	atexit(pid_file_cleanup);
+
 	// initialize libevent, libevhtp
-	evbase_t * evbase = event_base_new();
+	evbase = event_base_new();
 	evhtp_t  * htp    = evhtp_new(evbase, NULL);
 	evhtp_callback_t *cb = NULL;
 
@@ -267,6 +303,17 @@ int main(int argc, char ** argv)
 				((evhtp_hook) upload_headers_cb) :
 				((evhtp_hook) no_upload_headers_cb), NULL);
 	}
+
+	// Daemonize
+	if (opt_daemon && daemon(0, 0) < 0) {
+		perror("Failed to daemonize");
+		return EXIT_FAILURE;
+	}
+
+	// Hold open PID file until process exits
+	int pid_fd = write_pid_file(opt_pid_file);
+	if (pid_fd < 0)
+		return EXIT_FAILURE;
 
 	// bind to socket and start server main loop
 	evhtp_bind_socket(htp,
