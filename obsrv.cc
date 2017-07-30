@@ -1,6 +1,7 @@
 
 #include "cscpp-config.h"
 
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <map>
@@ -27,6 +28,10 @@ using namespace orderentry;
 
 #define PROGRAM_NAME "obsrv"
 #define DEFAULT_PID_FILE "/var/run/obsrv.pid"
+
+enum {
+	MAX_CLIENT_DRIFT	= 20,	// max seconds client time may drift
+};
 
 static const char doc[] =
 PROGRAM_NAME " - order book server";
@@ -57,8 +62,7 @@ Market market;
 static void
 logRequest(evhtp_request_t *req, ReqState *state)
 {
-	assert(req != NULL);
-	assert(state != NULL);
+	assert(req && state);
 
 	// IP address
 	string addrStr = addressToStr(req->conn->saddr,
@@ -86,8 +90,9 @@ logRequest(evhtp_request_t *req, ReqState *state)
 static evhtp_res
 upload_read_cb(evhtp_request_t * req, evbuf_t * buf, void * arg)
 {
+	assert(req && buf && arg);
+
 	ReqState *state = (ReqState *) arg;
-	assert(state != NULL);
 
 	// remove data from evbuffer to malloc'd buffer
 	size_t bufsz = evbuffer_get_length(buf);
@@ -98,6 +103,9 @@ upload_read_cb(evhtp_request_t * req, evbuf_t * buf, void * arg)
 	// append chunk to total body
 	state->body.append(chunk, bufsz);
 
+	// update in-progress content hash
+	SHA256_Update(&state->bodyHash, chunk, bufsz);
+
 	// release malloc'd buffer
 	free(chunk);
 
@@ -107,8 +115,9 @@ upload_read_cb(evhtp_request_t * req, evbuf_t * buf, void * arg)
 static evhtp_res
 req_finish_cb(evhtp_request_t * req, void * arg)
 {
+	assert(req && arg);
+
 	ReqState *state = (ReqState *) arg;
-	assert(state != NULL);
 
 	// log request, following processing
 	logRequest(req, state);
@@ -119,8 +128,13 @@ req_finish_cb(evhtp_request_t * req, void * arg)
 	return EVHTP_RES_OK;
 }
 
-static void reqInit(evhtp_request_t *req, ReqState *state)
+static void reqInit(evhtp_request_t *req, ReqState *state,
+		    const struct HttpApiEntry *apiEnt)
 {
+	assert(req && state && apiEnt);
+
+	state->apiEnt = apiEnt;
+
 	// standard Date header
 	evhtp_headers_add_header(req->headers_out,
 		evhtp_header_new("Date",
@@ -139,9 +153,82 @@ static void reqInit(evhtp_request_t *req, ReqState *state)
 	evhtp_request_set_hook (req, evhtp_hook_on_request_fini, (evhtp_hook) req_finish_cb, state);
 }
 
-static evhtp_res
-upload_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
+static bool reqVerify(evhtp_request_t *req, ReqState *state,
+		      const struct HttpApiEntry *apiEnt,
+		      const std::string& authUser,
+		      const std::string& authSecret)
 {
+	assert(req && state && apiEnt);
+
+	if (!apiEnt->authReq)
+		return true;
+
+	// required headers ETag, X-Unixtime
+	const char *etagCstr = evhtp_kv_find (req->headers_in, "ETag");
+	const char *unixtimeCstr = evhtp_kv_find (req->headers_in, "X-Unixtime");
+	if (!etagCstr || !unixtimeCstr)
+		return false;
+
+	// validate client clock within range
+	time_t timeDiff, clientTime = (time_t) strtoll(unixtimeCstr, NULL, 10);
+	timeDiff = std::max(state->tstamp.tv_sec, clientTime) -
+		   std::min(state->tstamp.tv_sec, clientTime);
+	if (timeDiff > MAX_CLIENT_DRIFT)
+		return false;
+
+	// input remote Auth hdr
+	const char *authcstr = evhtp_kv_find (req->headers_in, "Authorization");
+	if (!authcstr)
+		return false;
+	string authHdr(authcstr);
+
+	// generate local Auth hdr
+	string authCanonical;
+	build_auth_hdr(req, authUser, authSecret, authCanonical);
+
+	// verify match
+	return (authHdr == authCanonical);
+}
+
+bool reqPreProcessing(evhtp_request_t *req, ReqState *state)
+{
+	assert(req && state && state->apiEnt);
+
+	// check authorization, if method requires it
+	if (!reqVerify(req, state, state->apiEnt,
+		       "testuser", "testpass")) {
+		evhtp_send_reply(req, EVHTP_RES_FORBIDDEN);
+		return false;
+	}
+
+	// final authorization step: verify supplied ETag matches body content
+	const char *etagCstr = evhtp_kv_find (req->headers_in, "ETag");
+	if (etagCstr) {
+		string etagRemote(etagCstr);
+
+		// finalize content hash
+		SHA256_Final(&state->md[0], &state->bodyHash);
+
+		// canonical ETag, calculated from input content
+		string etagCanon = HexStr(state->md);
+
+		// verify ETag matches expected
+		if (etagRemote != etagCanon) {
+			evhtp_send_reply(req, EVHTP_RES_BADREQ);
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static evhtp_res
+upload_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void *arg)
+{
+	assert(req && hdrs && arg);
+
+	const struct HttpApiEntry *apiEnt = (const struct HttpApiEntry *) arg;
+
 	// handle OPTIONS
 	if (evhtp_request_get_method(req) == htp_method_OPTIONS) {
 		return EVHTP_RES_OK;
@@ -152,7 +239,7 @@ upload_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
 	assert(state != NULL);
 
 	// common per-request state
-	reqInit(req, state);
+	reqInit(req, state, apiEnt);
 
 	// special incoming-data hook
 	evhtp_request_set_hook (req, evhtp_hook_on_read, (evhtp_hook) upload_read_cb, state);
@@ -161,8 +248,12 @@ upload_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
 }
 
 static evhtp_res
-no_upload_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
+no_upload_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void *arg)
 {
+	assert(req && hdrs && arg);
+
+	const struct HttpApiEntry *apiEnt = (const struct HttpApiEntry *) arg;
+
 	// handle OPTIONS
 	if (evhtp_request_get_method(req) == htp_method_OPTIONS) {
 		return EVHTP_RES_OK;
@@ -173,18 +264,20 @@ no_upload_headers_cb(evhtp_request_t * req, evhtp_headers_t * hdrs, void * arg)
 	assert(state != NULL);
 
 	// common per-request state
-	reqInit(req, state);
+	reqInit(req, state, apiEnt);
 
 	return EVHTP_RES_OK;
 }
 
-void reqDefault(evhtp_request_t * req, void * a)
+void reqInfo(evhtp_request_t * req, void * arg)
 {
-	evhtp_send_reply(req, EVHTP_RES_NOTFOUND);
-}
+	assert(req && arg);
+	ReqState *state = (ReqState *) arg;
 
-void reqInfo(evhtp_request_t * req, void * a)
-{
+	// global pre-request processing
+	if (!reqPreProcessing(req, state))
+		return;		// pre-processing failed; response already sent
+
 	// current service time
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
@@ -257,24 +350,15 @@ static void shutdown_signal(int signo)
 	event_base_loopbreak(evbase);
 }
 
-struct HttpApiEntry {
-	const char		*path;
-	bool			pathIsRegex;
-
-	evhtp_callback_cb	cb;
-	bool			wantInput;
-	bool			jsonInput;
-};
-
 static std::vector<struct HttpApiEntry> apiRegistry = {
-	{ "/info", false, reqInfo, false, false },
-	{ "/marketAdd", false, reqMarketAdd, true, true },
-	{ "/marketList", false, reqMarketList, false, false },
-	{ "/book", false, reqOrderBookList, true, true },
-	{ "/orderAdd", false, reqOrderAdd, true, true },
-	{ "/orderCancel", false, reqOrderCancel, true, true },
-	{ "/orderModify", false, reqOrderModify, true, true },
-	{ "^/order/([a-z0-9-]+)", true, reqOrderInfo, true, true },
+	{ false, "/info", false, reqInfo, false, false },
+	{ false, "/marketAdd", false, reqMarketAdd, true, true },
+	{ false, "/marketList", false, reqMarketList, false, false },
+	{ false, "/book", false, reqOrderBookList, true, true },
+	{ false, "/orderAdd", false, reqOrderAdd, true, true },
+	{ false, "/orderCancel", false, reqOrderCancel, true, true },
+	{ false, "/orderModify", false, reqOrderModify, true, true },
+	{ false, "^/order/([a-z0-9-]+)", true, reqOrderInfo, true, true },
 };
 
 int main(int argc, char ** argv)
@@ -301,24 +385,21 @@ int main(int argc, char ** argv)
 	evhtp_t  * htp    = evhtp_new(evbase, NULL);
 	evhtp_callback_t *cb = NULL;
 
-	// default callback, if not matched
-	evhtp_set_gencb(htp, reqDefault, NULL);
-
 	// register our list of API calls and their handlers
-	for (auto& it : apiRegistry) {
-		const struct HttpApiEntry& apiEnt = it;
+	for (size_t i = 0; i < apiRegistry.size(); i++) {
+		const struct HttpApiEntry *apiEnt = &apiRegistry[i];
 
 		// register evhtp hook
-		if (apiEnt.pathIsRegex)
-			cb = evhtp_set_regex_cb(htp, apiEnt.path, apiEnt.cb, NULL);
+		if (apiEnt->pathIsRegex)
+			cb = evhtp_set_regex_cb(htp, apiEnt->path, apiEnt->cb, (void *) apiEnt);
 		else
-			cb = evhtp_set_cb(htp, apiEnt.path, apiEnt.cb, NULL);
+			cb = evhtp_set_cb(htp, apiEnt->path, apiEnt->cb, (void *) apiEnt);
 
 		// set standard per-callback initialization hook
 		evhtp_callback_set_hook(cb, evhtp_hook_on_headers,
-			apiEnt.wantInput ?
+			apiEnt->wantInput ?
 				((evhtp_hook) upload_headers_cb) :
-				((evhtp_hook) no_upload_headers_cb), NULL);
+				((evhtp_hook) no_upload_headers_cb), (void *) apiEnt);
 	}
 
 	// Daemonize

@@ -67,8 +67,15 @@ static bool validBookType(const std::string& btype)
 	return true;
 }
 
-void reqOrderInfo(evhtp_request_t * req, void * a)
+void reqOrderInfo(evhtp_request_t * req, void *arg)
 {
+	assert(req && arg);
+	ReqState *state = (ReqState *) arg;
+
+	// global pre-request processing
+	if (!reqPreProcessing(req, state))
+		return;		// pre-processing failed; response already sent
+
 	string orderId(req->uri->path->match_start);
 
 	OrderPtr order;
@@ -112,8 +119,12 @@ void reqOrderInfo(evhtp_request_t * req, void * a)
 
 void reqOrderAdd(evhtp_request_t * req, void * arg)
 {
+	assert(req && arg);
 	ReqState *state = (ReqState *) arg;
-	assert(state != NULL);
+
+	// global pre-request processing
+	if (!reqPreProcessing(req, state))
+		return;		// pre-processing failed; response already sent
 
 	// required JSON parameters and their types
 	std::map<std::string,UniValue::VType> apiSchema;
@@ -177,8 +188,12 @@ void reqOrderAdd(evhtp_request_t * req, void * arg)
 
 void reqOrderModify(evhtp_request_t * req, void * arg)
 {
+	assert(req && arg);
 	ReqState *state = (ReqState *) arg;
-	assert(state != NULL);
+
+	// global pre-request processing
+	if (!reqPreProcessing(req, state))
+		return;		// pre-processing failed; response already sent
 
 	// required JSON parameters and their types
 	std::map<std::string,UniValue::VType> apiSchema;
@@ -217,8 +232,12 @@ void reqOrderModify(evhtp_request_t * req, void * arg)
 
 void reqOrderCancel(evhtp_request_t * req, void * arg)
 {
+	assert(req && arg);
 	ReqState *state = (ReqState *) arg;
-	assert(state != NULL);
+
+	// global pre-request processing
+	if (!reqPreProcessing(req, state))
+		return;		// pre-processing failed; response already sent
 
 	// required JSON parameters and their types
 	std::map<std::string,UniValue::VType> apiSchema;
@@ -245,8 +264,12 @@ void reqOrderCancel(evhtp_request_t * req, void * arg)
 
 void reqOrderBookList(evhtp_request_t * req, void * arg)
 {
+	assert(req && arg);
 	ReqState *state = (ReqState *) arg;
-	assert(state != NULL);
+
+	// global pre-request processing
+	if (!reqPreProcessing(req, state))
+		return;		// pre-processing failed; response already sent
 
 	// required JSON parameters and their types
 	std::map<std::string,UniValue::VType> apiSchema;
@@ -300,8 +323,12 @@ void reqOrderBookList(evhtp_request_t * req, void * arg)
 
 void reqMarketAdd(evhtp_request_t * req, void * arg)
 {
+	assert(req && arg);
 	ReqState *state = (ReqState *) arg;
-	assert(state != NULL);
+
+	// global pre-request processing
+	if (!reqPreProcessing(req, state))
+		return;		// pre-processing failed; response already sent
 
 	// required JSON parameters and their types
 	std::map<std::string,UniValue::VType> apiSchema;
@@ -341,8 +368,15 @@ void reqMarketAdd(evhtp_request_t * req, void * arg)
 	httpJsonReply(req, bobj);
 }
 
-void reqMarketList(evhtp_request_t * req, void * a)
+void reqMarketList(evhtp_request_t * req, void *arg)
 {
+	assert(req && arg);
+	ReqState *state = (ReqState *) arg;
+
+	// global pre-request processing
+	if (!reqPreProcessing(req, state))
+		return;		// pre-processing failed; response already sent
+
 	UniValue res(UniValue::VARR);
 
 	// request list of symbols from market
