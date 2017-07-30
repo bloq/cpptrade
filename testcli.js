@@ -8,7 +8,7 @@ function step_info(callback) {
 	var cli = new ApiClient();
 
 	cli.info(function(err, res) {
-		if (err) { callback(null, false); return; }
+		if (err) { throw new Error(err); }
 
 		console.log("INFO:");
 		console.dir(res);
@@ -25,7 +25,7 @@ function step_marketAdd(callback) {
 	};
 
 	cli.marketAdd(marketInfo, function(err, res) {
-		if (err) { callback(null, false); return; }
+		if (err) { throw new Error(err); }
 
 		console.log("marketADD:");
 		console.dir(res);
@@ -37,7 +37,7 @@ function step_marketList(callback) {
 	var cli = new ApiClient();
 
 	cli.marketList(function(err, res) {
-		if (err) { callback(null, false); return; }
+		if (err) { throw new Error(err); }
 
 		console.log("marketList:");
 		console.dir(res);
@@ -56,7 +56,7 @@ function step_addBuy(callback) {
 	};
 
 	cli.orderAdd(orderInfo, function(err, res) {
-		if (err) { callback(null, false); return; }
+		if (err) { throw new Error(err); }
 
 		console.log("ADD:");
 		console.dir(res);
@@ -74,7 +74,7 @@ function step_addSell(callback) {
 	};
 
 	cli.orderAdd(orderInfo, function(err, res) {
-		if (err) { callback(null, false); return; }
+		if (err) { throw new Error(err); }
 
 		console.log("ADD:");
 		console.dir(res);
@@ -87,7 +87,7 @@ function step_orderBook(callback) {
 	var cli = new ApiClient();
 
 	cli.book("GOOG", function(err, res) {
-		if (err) { callback(null, false); return; }
+		if (err) { throw new Error(err); }
 
 		console.log("BOOK:");
 		console.dir(res);
