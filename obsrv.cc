@@ -44,18 +44,16 @@ static const char doc[] =
 PROGRAM_NAME " - order book server";
 
 static struct argp_option options[] = {
-	{ "bind-address", 1001, "IP/hostname", 0,
-	  "Address to which HTTP server is bound" },
-	{ "bind-port", 1002, "port", 0,
-	  "TCP port to which HTTP server is bound" },
+	{ "config", 'c', "json-file", 0,
+	  "JSON server configuration file (default: config-obsrv.json)" },
 	{ }
 };
 
 static error_t parse_opt (int key, char *arg, struct argp_state *state);
 static const struct argp argp = { options, parse_opt, NULL, doc };
 
-static const char *opt_bind_address = "0.0.0.0";
-static uint16_t opt_bind_port = 7979;
+static std::string opt_configfn = "config-obsrv.json";
+static UniValue serverCfg;
 
 static uint32_t nextOrderId = 1;
 static Market market;
@@ -128,6 +126,40 @@ static std::string httpDateHdr(time_t t)
 static std::string isoTimeStr(time_t t)
 {
 	return formatTime("%FT%TZ", t);
+}
+
+static bool readJsonFile(const std::string& filename, UniValue& jval)
+{
+	jval.clear();
+
+        FILE *f = fopen(filename.c_str(), "r");
+	if (!f)
+		return false;
+
+        string jdata;
+
+        char buf[4096];
+        while (!feof(f)) {
+                int bread = fread(buf, 1, sizeof(buf), f);
+		if (ferror(f)) {
+			fclose(f);
+			return false;
+		}
+
+                string s(buf, bread);
+                jdata += s;
+        }
+
+	if (ferror(f)) {
+		fclose(f);
+		return false;
+	}
+        fclose(f);
+
+	if (!jval.read(jdata))
+		return false;
+
+        return true;
 }
 
 static void
@@ -552,19 +584,9 @@ void reqInfo(evhtp_request_t * req, void * a)
 static error_t parse_opt (int key, char *arg, struct argp_state *state)
 {
 	switch (key) {
-	case 1001:	// --bind-address
-		opt_bind_address = arg;
+	case 'c':
+		opt_configfn.assign(arg);
 		break;
-
-	case 1002:	// --bind-port
-		{
-		int v = atoi(arg);
-		if ((v > 0) && (v < 65536))
-			opt_bind_port = (uint16_t) v;
-		else
-			argp_usage(state);
-		break;
-		}
 
 	case ARGP_KEY_END:
 		break;
@@ -574,6 +596,21 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 	}
 
 	return 0;
+}
+
+static bool read_config_init()
+{
+	if (!readJsonFile(opt_configfn, serverCfg)) {
+		perror(opt_configfn.c_str());
+		return false;
+	}
+
+	if (!serverCfg.exists("bindAddress"))
+		serverCfg.pushKV("bindAddress", "0.0.0.0");
+	if (!serverCfg.exists("bindPort"))
+		serverCfg.pushKV("bindPort", (int64_t) 7979);
+
+	return true;
 }
 
 static const struct HttpApiEntry apiRegistry[] = {
@@ -595,6 +632,10 @@ int main(int argc, char ** argv)
 			argv[0], strerror(argp_rc));
 		return EXIT_FAILURE;
 	}
+
+	// read json configuration, and initialize early defaults
+	if (!read_config_init())
+		return EXIT_FAILURE;
 
 	// initialize libevent, libevhtp
 	evbase_t * evbase = event_base_new();
@@ -620,7 +661,10 @@ int main(int argc, char ** argv)
 	}
 
 	// bind to socket and start server main loop
-	evhtp_bind_socket(htp, opt_bind_address, opt_bind_port, 1024);
+	evhtp_bind_socket(htp,
+			  serverCfg["bindAddress"].getValStr().c_str(),
+			  atoi(serverCfg["bindPort"].getValStr().c_str()),
+			  1024);
 	event_base_loop(evbase, 0);
 	return 0;
 }

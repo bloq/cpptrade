@@ -23,3 +23,5 @@ obsrv
 *.o
 stamp-h1
 
+config-obsrv.json
+
