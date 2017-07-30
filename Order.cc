@@ -3,6 +3,7 @@
 // See the file license.txt for licensing information.
 #include "Order.h"
 #include <sstream>
+#include <sys/time.h>
 
 namespace orderentry
 {
@@ -59,6 +60,11 @@ bool
 Order::immediate_or_cancel() const
 {
     return ioc_;
+}
+
+void Order::genTimestamp()
+{
+	gettimeofday(&tstamp_, NULL);
 }
 
 std::string 

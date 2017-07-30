@@ -8,6 +8,7 @@
 
 #include <string>
 #include <vector>
+#include <sys/time.h>
 
 namespace orderentry
 {
@@ -99,6 +100,9 @@ public:
     const History & history() const;
     const StateChange & currentState() const;
 
+    void genTimestamp();
+    struct timeval timestamp() const { return tstamp_; }
+
     ///////////////////////////
     // Order life cycle events
     void onSubmitted();
@@ -120,7 +124,7 @@ public:
     void onReplaced(const int32_t& size_delta, 
         liquibook::book::Price new_price);
 
-    void onReplaceRejected(const char * reaseon);
+    void onReplaceRejected(const char * reason);
 
 private:
     std::string id_;
@@ -139,6 +143,8 @@ private:
     
     std::vector<StateChange> history_;
     bool verbose_;
+
+    struct timeval tstamp_;
 };
 
 std::ostream & operator << (std::ostream & out, const Order & order);

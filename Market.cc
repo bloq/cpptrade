@@ -84,6 +84,7 @@ void Market::orderSubmit(OrderBookPtr book, OrderPtr order,
 			 const std::string& orderId,
 			 liquibook::book::OrderConditions conditions)
 {
+    order->genTimestamp();
     order->onSubmitted();
     out() << "ADDING order:  " << *order << std::endl;
 
