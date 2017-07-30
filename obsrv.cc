@@ -352,13 +352,13 @@ static void shutdown_signal(int signo)
 
 static std::vector<struct HttpApiEntry> apiRegistry = {
 	{ false, "/info", false, reqInfo, false, false },
-	{ false, "/marketAdd", false, reqMarketAdd, true, true },
+	{ true,  "/marketAdd", false, reqMarketAdd, true, true },
 	{ false, "/marketList", false, reqMarketList, false, false },
 	{ false, "/book", false, reqOrderBookList, true, true },
-	{ false, "/orderAdd", false, reqOrderAdd, true, true },
-	{ false, "/orderCancel", false, reqOrderCancel, true, true },
-	{ false, "/orderModify", false, reqOrderModify, true, true },
-	{ false, "^/order/([a-z0-9-]+)", true, reqOrderInfo, true, true },
+	{ true,  "/orderAdd", false, reqOrderAdd, true, true },
+	{ true,  "/orderCancel", false, reqOrderCancel, true, true },
+	{ true,  "/orderModify", false, reqOrderModify, true, true },
+	{ true,  "^/order/([a-z0-9-]+)", true, reqOrderInfo, true, true },
 };
 
 int main(int argc, char ** argv)

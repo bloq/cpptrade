@@ -355,7 +355,7 @@ void reqMarketAdd(evhtp_request_t * req, void * arg)
 
 	// verify this is not a duplicate
 	if (market.symbolIsDefined(inSymbol)) {
-		evhtp_send_reply(req, EVHTP_RES_FORBIDDEN);
+		evhtp_send_reply(req, EVHTP_RES_NACCEPTABLE);
 		return;
 	}
 
