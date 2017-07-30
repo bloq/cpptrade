@@ -22,8 +22,6 @@
 using namespace std;
 using namespace orderentry;
 
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-
 #define PROGRAM_NAME "obsrv"
 
 static const char doc[] =
@@ -220,7 +218,7 @@ static bool read_config_init()
 	return true;
 }
 
-static const struct HttpApiEntry apiRegistry[] = {
+static std::vector<struct HttpApiEntry> apiRegistry = {
 	{ "/info", reqInfo, false, false },
 	{ "/marketAdd", reqMarketAdd, true, true },
 	{ "/marketList", reqMarketList, false, false },
@@ -253,18 +251,17 @@ int main(int argc, char ** argv)
 	evhtp_set_gencb(htp, reqDefault, NULL);
 
 	// register our list of API calls and their handlers
-	for (unsigned int i = 0; i < ARRAY_SIZE(apiRegistry); i++) {
-		struct HttpApiEntry *apiEnt = (struct HttpApiEntry *) &apiRegistry[i];
+	for (auto& it : apiRegistry) {
+		const struct HttpApiEntry& apiEnt = it;
+
 		// register evhtp hook
-		cb = evhtp_set_cb(htp,
-				  apiRegistry[i].path,
-				  apiRegistry[i].cb, apiEnt);
+		cb = evhtp_set_cb(htp, apiEnt.path, apiEnt.cb, NULL);
 
 		// set standard per-callback initialization hook
 		evhtp_callback_set_hook(cb, evhtp_hook_on_headers,
-			apiRegistry[i].wantInput ?
+			apiEnt.wantInput ?
 				((evhtp_hook) upload_headers_cb) :
-				((evhtp_hook) no_upload_headers_cb), apiEnt);
+				((evhtp_hook) no_upload_headers_cb), NULL);
 	}
 
 	// bind to socket and start server main loop

@@ -307,8 +307,7 @@ void reqMarketList(evhtp_request_t * req, void * a)
 	market.getSymbols(symbols);
 
 	// copy vector of symbols to JSON result array
-	for (vector<string>::iterator t = symbols.begin();
-	     t != symbols.end(); t++) {
+	for (auto t = symbols.begin(); t != symbols.end(); t++) {
 		res.push_back(*t);
 	}
 
