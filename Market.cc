@@ -71,8 +71,6 @@ namespace {
 namespace orderentry
 {
 
-uint32_t Market::orderIdSeed_ = 0;
-
 Market::Market(std::ostream * out)
 : logFile_(out)
 {
@@ -83,23 +81,23 @@ Market::~Market()
 }
 
 void Market::orderSubmit(OrderBookPtr book, OrderPtr order,
-			 const std::string& orderIdStr,
+			 const std::string& orderId,
 			 liquibook::book::OrderConditions conditions)
 {
     order->onSubmitted();
     out() << "ADDING order:  " << *order << std::endl;
 
-    orders_[orderIdStr] = order;
+    orders_[orderId] = order;
     book->add(order, conditions);
 }
 
 ///////////
 // CANCEL
-bool Market::orderCancel(const std::string & orderIdStr)
+bool Market::orderCancel(const std::string & orderId)
 {
     OrderPtr order;
     OrderBookPtr book;
-    if (!findExistingOrder(orderIdStr, order, book))
+    if (!findExistingOrder(orderId, order, book))
     {
         return false;
     }
@@ -111,13 +109,13 @@ bool Market::orderCancel(const std::string & orderIdStr)
 
 ///////////
 // MODIFY
-bool Market::orderModify(const std::string & orderIdStr,
+bool Market::orderModify(const std::string & orderId,
 			 int32_t quantityChange,
 			 liquibook::book::Price price)
 {
     OrderPtr order;
     OrderBookPtr book;
-    if(!findExistingOrder(orderIdStr, order, book))
+    if(!findExistingOrder(orderId, order, book))
     {
         return false;
     }

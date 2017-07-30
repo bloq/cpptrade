@@ -12,6 +12,7 @@
 #include <argp.h>
 #include <evhtp.h>
 #include <ctype.h>
+#include <uuid/uuid.h>
 #include <assert.h>
 #include "Market.h"
 #include "srv.h"
@@ -93,8 +94,11 @@ void reqOrderAdd(evhtp_request_t * req, void * arg)
 	}
 
 	// generate new order id
-	uint32_t thisOrderId = nextOrderId++;
-	std::string orderId = std::to_string(thisOrderId);
+	uuid_t id;
+	char id_str[42];
+	uuid_generate_random(id);
+	uuid_unparse_lower(id, id_str);
+	std::string orderId(id_str);
 
 	// build new order instance, given input params above
 	OrderPtr order = std::make_shared<Order>(orderId, isBuy, quantity, symbol, price, stopPrice, aon, ioc);
@@ -111,7 +115,7 @@ void reqOrderAdd(evhtp_request_t * req, void * arg)
 
 	// return order data
 	UniValue res(UniValue::VOBJ);
-	res.pushKV("orderId", (uint64_t) thisOrderId);
+	res.pushKV("orderId", orderId);
 
 	// successful operation.  Return JSON output.
 	string body = res.write(2) + "\n";
@@ -127,7 +131,7 @@ void reqOrderModify(evhtp_request_t * req, void * arg)
 
 	// required JSON parameters and their types
 	std::map<std::string,UniValue::VType> apiSchema;
-	apiSchema["order_id"] = UniValue::VSTR;
+	apiSchema["oid"] = UniValue::VSTR;
 
 	// parse input into JSON + preliminary input validation
 	UniValue jval;
@@ -143,7 +147,7 @@ void reqOrderModify(evhtp_request_t * req, void * arg)
 	}
 
 	// copy JSON input params into more manageable temporary variables
-	string orderIdStr = jval["order_id"].getValStr();
+	string orderId = jval["oid"].getValStr();
 	int32_t qtyDelta = liquibook::book::SIZE_UNCHANGED;
 	if (jval.exists("qtyDelta"))
 		qtyDelta = atoll(jval["qtyDelta"].getValStr().c_str());
@@ -152,7 +156,7 @@ void reqOrderModify(evhtp_request_t * req, void * arg)
 		price = atoll(jval["price"].getValStr().c_str());
 
 	// submit modification request to order book
-	bool rc = market.orderModify(orderIdStr, qtyDelta, price);
+	bool rc = market.orderModify(orderId, qtyDelta, price);
 
 	UniValue res(rc);
 
@@ -170,7 +174,7 @@ void reqOrderCancel(evhtp_request_t * req, void * arg)
 
 	// required JSON parameters and their types
 	std::map<std::string,UniValue::VType> apiSchema;
-	apiSchema["order_id"] = UniValue::VSTR;
+	apiSchema["oid"] = UniValue::VSTR;
 
 	// parse input into JSON + preliminary input validation
 	UniValue jval;
@@ -180,10 +184,10 @@ void reqOrderCancel(evhtp_request_t * req, void * arg)
 	}
 
 	// copy JSON input params into more manageable temporary variables
-	string orderIdStr = jval["order_id"].getValStr();
+	string orderId = jval["oid"].getValStr();
 
 	// submit cancellation request to order book
-	bool rc = market.orderCancel(orderIdStr);
+	bool rc = market.orderCancel(orderId);
 
 	UniValue res(rc);
 

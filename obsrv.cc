@@ -39,7 +39,6 @@ static const struct argp argp = { options, parse_opt, NULL, doc };
 static std::string opt_configfn = "config-obsrv.json";
 static UniValue serverCfg;
 
-uint32_t nextOrderId = 1;
 Market market;
 
 static void

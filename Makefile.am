@@ -17,5 +17,5 @@ obsrv_LDADD = \
 	-levhtp \
 	-lunivalue \
 	-levent_core -levent_openssl \
-	$(OPENSSL_LIBS) $(ARGP_LIB)
+	$(OPENSSL_LIBS) $(ARGP_LIB) $(UUID_LIB)
 

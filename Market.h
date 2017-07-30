@@ -102,12 +102,12 @@ public:
     ////////////////////////
     // Order book interactions
     bool symbolIsDefined(const std::string & symbol);
-    bool orderModify(const std::string & orderIdStr,
+    bool orderModify(const std::string & orderId,
                      int32_t quantityChange = liquibook::book::SIZE_UNCHANGED,
                      liquibook::book::Price price = liquibook::book::PRICE_UNCHANGED);
-    bool orderCancel(const std::string & orderIdStr);
+    bool orderCancel(const std::string & orderId);
     void orderSubmit(OrderBookPtr book, OrderPtr order,
-		     const std::string& orderIdStr,
+		     const std::string& orderId,
 		     liquibook::book::OrderConditions conditions);
     OrderBookPtr findBook(const std::string & symbol);
     OrderBookPtr addBook(const std::string & symbol, bool useDepthBook);
@@ -119,8 +119,6 @@ public:
         return *logFile_;
     }
 private:
-    static uint32_t orderIdSeed_;
-
     std::ostream * logFile_;
 
     OrderMap orders_;
