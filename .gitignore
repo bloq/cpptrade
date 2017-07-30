@@ -20,8 +20,11 @@ Makefile.in
 config.log
 config.status
 obsrv
-*.o
 stamp-h1
+test-driver
+*.o
+*.log
+*.trs
 
 config-obsrv.json
 

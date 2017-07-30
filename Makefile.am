@@ -19,3 +19,6 @@ obsrv_LDADD = \
 	-levent_core -levent_openssl \
 	$(OPENSSL_LIBS) $(ARGP_LIB) $(UUID_LIB)
 
+EXTRA_DIST = obsrv-tests.sh
+TESTS = obsrv-tests.sh
+

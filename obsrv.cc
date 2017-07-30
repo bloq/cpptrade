@@ -213,6 +213,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		opt_pid_file = arg;
 		break;
 
+	case 1002:
+		opt_daemon = true;
+		break;
+
 	case ARGP_KEY_END:
 		break;
 
