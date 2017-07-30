@@ -21,6 +21,16 @@
 using namespace std;
 using namespace orderentry;
 
+static UniValue uvFromTv(const struct timeval *tv)
+{
+	string tmp = to_string(tv->tv_sec) + "." + to_string(tv->tv_usec);
+
+	UniValue ret;
+	ret.setNumStr(tmp);
+
+	return ret;
+}
+
 static bool parseBySchema(ReqState *state,
 			  const std::map<std::string,UniValue::VType>& schema,
 			  UniValue& jval)
@@ -55,6 +65,49 @@ static bool validBookType(const std::string& btype)
 		return false;
 
 	return true;
+}
+
+void reqOrderInfo(evhtp_request_t * req, void * a)
+{
+	string orderId(req->uri->path->match_start);
+
+	OrderPtr order;
+	OrderBookPtr book;
+	if (!market.findExistingOrder(orderId, order, book))
+	{
+		evhtp_send_reply(req, EVHTP_RES_NOTFOUND);
+		return;
+	}
+
+	UniValue res(UniValue::VOBJ);
+	res.pushKV("id", orderId);
+	res.pushKV("side", order->is_buy() ? "buy" : "sell");
+	res.pushKV("qty", (uint64_t) order->order_qty());
+	res.pushKV("price", (uint64_t) order->price());
+
+	UniValue bval;
+	bval.setBool(order->all_or_none());
+	res.pushKV("aon", bval);
+
+	bval.setBool(order->immediate_or_cancel());
+	res.pushKV("ioc", bval);
+
+	struct timeval tv = order->timestamp();
+	res.pushKV("submitted_at", uvFromTv(&tv));
+
+	string orderType;
+	if (order->is_limit())
+		orderType = "limit";
+	else
+		orderType = "market";
+	if (order->stop_price() > 0) {
+		orderType += "-stop";
+		res.pushKV("stop_price", (uint64_t) order->stop_price());
+	}
+	res.pushKV("type", orderType);
+
+	// successful operation.  Return JSON output.
+	httpJsonReply(req, res);
 }
 
 void reqOrderAdd(evhtp_request_t * req, void * arg)

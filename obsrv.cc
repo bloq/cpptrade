@@ -257,14 +257,24 @@ static void shutdown_signal(int signo)
 	event_base_loopbreak(evbase);
 }
 
+struct HttpApiEntry {
+	const char		*path;
+	bool			pathIsRegex;
+
+	evhtp_callback_cb	cb;
+	bool			wantInput;
+	bool			jsonInput;
+};
+
 static std::vector<struct HttpApiEntry> apiRegistry = {
-	{ "/info", reqInfo, false, false },
-	{ "/marketAdd", reqMarketAdd, true, true },
-	{ "/marketList", reqMarketList, false, false },
-	{ "/book", reqOrderBookList, true, true },
-	{ "/orderAdd", reqOrderAdd, true, true },
-	{ "/orderCancel", reqOrderCancel, true, true },
-	{ "/orderModify", reqOrderModify, true, true },
+	{ "/info", false, reqInfo, false, false },
+	{ "/marketAdd", false, reqMarketAdd, true, true },
+	{ "/marketList", false, reqMarketList, false, false },
+	{ "/book", false, reqOrderBookList, true, true },
+	{ "/orderAdd", false, reqOrderAdd, true, true },
+	{ "/orderCancel", false, reqOrderCancel, true, true },
+	{ "/orderModify", false, reqOrderModify, true, true },
+	{ "^/order/([a-z0-9-]+)", true, reqOrderInfo, true, true },
 };
 
 int main(int argc, char ** argv)
@@ -299,7 +309,10 @@ int main(int argc, char ** argv)
 		const struct HttpApiEntry& apiEnt = it;
 
 		// register evhtp hook
-		cb = evhtp_set_cb(htp, apiEnt.path, apiEnt.cb, NULL);
+		if (apiEnt.pathIsRegex)
+			cb = evhtp_set_regex_cb(htp, apiEnt.path, apiEnt.cb, NULL);
+		else
+			cb = evhtp_set_cb(htp, apiEnt.path, apiEnt.cb, NULL);
 
 		// set standard per-callback initialization hook
 		evhtp_callback_set_hook(cb, evhtp_hook_on_headers,

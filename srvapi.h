@@ -3,6 +3,7 @@
 
 #include <evhtp.h>
 
+void reqOrderInfo(evhtp_request_t * req, void * arg);
 void reqOrderAdd(evhtp_request_t * req, void * arg);
 void reqOrderModify(evhtp_request_t * req, void * arg);
 void reqOrderCancel(evhtp_request_t * req, void * arg);
