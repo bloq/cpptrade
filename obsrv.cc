@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <univalue.h>
 #include <time.h>
+#include <sys/time.h>
 #include <argp.h>
 #include <evhtp.h>
 #include <ctype.h>
@@ -172,12 +173,18 @@ void reqDefault(evhtp_request_t * req, void * a)
 
 void reqInfo(evhtp_request_t * req, void * a)
 {
-	UniValue obj(UniValue::VOBJ);
+	// current service time
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	UniValue timeObj(UniValue::VOBJ);
+	timeObj.pushKV("unixtime", tv.tv_sec);
+	timeObj.pushKV("iso", isoTimeStr(tv.tv_sec));
 
 	// some information about this server
+	UniValue obj(UniValue::VOBJ);
 	obj.pushKV("name", "obsrv");
 	obj.pushKV("apiversion", 100);
-	obj.pushKV("unixtime", time(NULL));
+	obj.pushKV("time", timeObj);
 
 	// successful operation.  Return JSON output.
 	httpJsonReply(req, obj);
