@@ -8,6 +8,7 @@ obsrv_SOURCES = \
 	srv.h obsrv.cc \
 	Market.h Market.cc \
 	OrderFwd.h Order.h Order.cc \
+	HttpUtil.h HttpUtil.cc \
 	Util.h Util.cc
 
 obsrv_LDFLAGS = $(PTHREAD_CFLAGS) $(OPENSSL_LDFLAGS)

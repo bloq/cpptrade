@@ -9,10 +9,12 @@
 #include <vector>
 #include <sys/socket.h>
 #include <univalue.h>
+#include <time.h>
 
 std::string addressToStr(const struct sockaddr *sockaddr, socklen_t socklen);
 std::string formatTime(const std::string& fmt, time_t t);
 bool readJsonFile(const std::string& filename, UniValue& jval);
+std::string isoTimeStr(time_t t);
 
 namespace orderentry
 {

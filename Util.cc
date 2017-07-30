@@ -32,6 +32,11 @@ std::string formatTime(const std::string& fmt, time_t t)
 	return string(timeStr);
 }
 
+std::string isoTimeStr(time_t t)
+{
+	return formatTime("%FT%TZ", t);
+}
+
 bool readJsonFile(const std::string& filename, UniValue& jval)
 {
 	jval.clear();

@@ -15,6 +15,7 @@
 #include <assert.h>
 #include "Market.h"
 #include "Util.h"
+#include "HttpUtil.h"
 #include "srvapi.h"
 #include "srv.h"
 
@@ -22,13 +23,6 @@ using namespace std;
 using namespace orderentry;
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-
-struct HttpApiEntry {
-	const char		*path;
-	evhtp_callback_cb	cb;
-	bool			wantInput;
-	bool			jsonInput;
-};
 
 #define PROGRAM_NAME "obsrv"
 
@@ -49,28 +43,6 @@ static UniValue serverCfg;
 
 uint32_t nextOrderId = 1;
 Market market;
-
-static int64_t
-get_content_length (const evhtp_request_t *req)
-{
-    assert(req != NULL);
-    const char *content_len_str = evhtp_kv_find (req->headers_in, "Content-Length");
-    if (!content_len_str) {
-        return -1;
-    }
-
-    return strtoll (content_len_str, NULL, 10);
-}
-
-static std::string httpDateHdr(time_t t)
-{
-	return formatTime("%a, %d %b %Y %H:%M:%S GMT", t);
-}
-
-static std::string isoTimeStr(time_t t)
-{
-	return formatTime("%FT%TZ", t);
-}
 
 static void
 logRequest(evhtp_request_t *req, ReqState *state)
