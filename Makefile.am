@@ -4,7 +4,8 @@ AM_CPPFLAGS = -std=c++11 $(PTHREAD_CFLAGS)
 sbin_PROGRAMS = obsrv
 
 obsrv_SOURCES = \
-	obsrv.cc \
+	srvapi.h srvapi.cc \
+	srv.h obsrv.cc \
 	Market.h Market.cc \
 	OrderFwd.h Order.h Order.cc \
 	Util.h Util.cc
