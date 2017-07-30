@@ -15,5 +15,6 @@ struct HttpApiEntry {
 
 int64_t get_content_length (const evhtp_request_t *req);
 std::string httpDateHdr(time_t t);
+void httpJsonReply(evhtp_request_t *req, const UniValue& jval);
 
 #endif // __HTTPUTIL_H__

@@ -174,15 +174,13 @@ void reqInfo(evhtp_request_t * req, void * a)
 {
 	UniValue obj(UniValue::VOBJ);
 
-	// set some static information about this server
+	// some information about this server
 	obj.pushKV("name", "obsrv");
-	obj.pushKV("version", 100);
+	obj.pushKV("apiversion", 100);
+	obj.pushKV("unixtime", time(NULL));
 
 	// successful operation.  Return JSON output.
-	string body = obj.write(2) + "\n";
-
-	evbuffer_add(req->buffer_out, body.c_str(), body.size());
-	evhtp_send_reply(req, EVHTP_RES_OK);
+	httpJsonReply(req, obj);
 }
 
 static error_t parse_opt (int key, char *arg, struct argp_state *state)

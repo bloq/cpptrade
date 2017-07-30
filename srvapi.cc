@@ -15,6 +15,7 @@
 #include <uuid/uuid.h>
 #include <assert.h>
 #include "Market.h"
+#include "HttpUtil.h"
 #include "srv.h"
 
 using namespace std;
@@ -118,10 +119,7 @@ void reqOrderAdd(evhtp_request_t * req, void * arg)
 	res.pushKV("orderId", orderId);
 
 	// successful operation.  Return JSON output.
-	string body = res.write(2) + "\n";
-
-	evbuffer_add(req->buffer_out, body.c_str(), body.size());
-	evhtp_send_reply(req, EVHTP_RES_OK);
+	httpJsonReply(req, res);
 }
 
 void reqOrderModify(evhtp_request_t * req, void * arg)
@@ -161,10 +159,7 @@ void reqOrderModify(evhtp_request_t * req, void * arg)
 	UniValue res(rc);
 
 	// successful operation.  Return JSON output.
-	string body = res.write(2) + "\n";
-
-	evbuffer_add(req->buffer_out, body.c_str(), body.size());
-	evhtp_send_reply(req, EVHTP_RES_OK);
+	httpJsonReply(req, res);
 }
 
 void reqOrderCancel(evhtp_request_t * req, void * arg)
@@ -192,10 +187,7 @@ void reqOrderCancel(evhtp_request_t * req, void * arg)
 	UniValue res(rc);
 
 	// successful operation.  Return JSON output.
-	string body = res.write(2) + "\n";
-
-	evbuffer_add(req->buffer_out, body.c_str(), body.size());
-	evhtp_send_reply(req, EVHTP_RES_OK);
+	httpJsonReply(req, res);
 }
 
 void reqOrderBookList(evhtp_request_t * req, void * arg)
@@ -250,10 +242,7 @@ void reqOrderBookList(evhtp_request_t * req, void * arg)
 	obj.pushKV("asks", asksArr);
 
 	// successful operation.  Return JSON output.
-	string body = obj.write(2) + "\n";
-
-	evbuffer_add(req->buffer_out, body.c_str(), body.size());
-	evhtp_send_reply(req, EVHTP_RES_OK);
+	httpJsonReply(req, obj);
 }
 
 void reqMarketAdd(evhtp_request_t * req, void * arg)
@@ -293,13 +282,10 @@ void reqMarketAdd(evhtp_request_t * req, void * arg)
 	// create new order book
 	market.addBook(inSymbol, (inBookType == "depth"));
 
-	UniValue obj(true);
+	UniValue bobj(true);
 
 	// successful operation.  Return JSON output.
-	string body = obj.write(2) + "\n";
-
-	evbuffer_add(req->buffer_out, body.c_str(), body.size());
-	evhtp_send_reply(req, EVHTP_RES_OK);
+	httpJsonReply(req, bobj);
 }
 
 void reqMarketList(evhtp_request_t * req, void * a)
@@ -316,9 +302,6 @@ void reqMarketList(evhtp_request_t * req, void * a)
 	}
 
 	// successful operation.  Return JSON output.
-	string body = res.write(2) + "\n";
-
-	evbuffer_add(req->buffer_out, body.c_str(), body.size());
-	evhtp_send_reply(req, EVHTP_RES_OK);
+	httpJsonReply(req, res);
 }
 
