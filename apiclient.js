@@ -28,6 +28,8 @@ function callHttp(opts, callback) {
 
 	if (!opts.headers)
 		opts.headers = {};
+
+	// hash post data (input data)
 	if (opts.postData) {
 		const contentLen = opts.postData.length;
 		opts.headers['Content-Length'] = contentLen.toString();
@@ -37,16 +39,28 @@ function callHttp(opts, callback) {
 		var input_digest = input_hash.digest('hex');
 
 		opts.headers['ETag'] = input_digest;
+
+	// hash an empty string if no postdata, b/c ETag is expected for auth
+	} else if (opts.auth256) {
+		var input_hash = crypto.createHash('sha256');
+		input_hash.update('', 'utf8');
+		var input_digest = input_hash.digest('hex');
+
+		opts.headers['ETag'] = input_digest;
 	}
+
+	// json content-type, if needed
 	if (opts.apiJson) {
 		opts.headers['Content-Type'] = 'application/json';
 	}
 
+	// timestamp request
 	const unixTimestamp = Math.floor(Date.now() / 1000);
 	opts.headers['X-Unixtime'] = unixTimestamp.toString();
 
 	opts.headers['Host'] = opts.hostname;
 
+	// if auth required, sign request
 	if (opts.auth256) {
 		const authHdr = makeAuthHdr(opts.headers,
 					    opts.username,
@@ -54,6 +68,7 @@ function callHttp(opts, callback) {
 		opts.headers["Authorization"] = authHdr;
 	}
 
+	// being async HTTP request
 	const req = http.request(opts, (res) => {
 		if (!opts.isbinary)
 			res.setEncoding('utf8');
@@ -182,10 +197,11 @@ ApiClient.prototype.orderAdd = function(orderInfo, callback) {
 	});
 };
 
-ApiClient.prototype.orderCancel = function(orderInfo, callback) {
+ApiClient.prototype.orderCancel = function(orderId, callback) {
 	var opts = JSON.parse(JSON.stringify(this.httpOpts));
 	opts.method = 'POST';
 	opts.path = '/orderCancel';
+	const orderInfo = { oid: orderId };
 	opts.postData = JSON.stringify(orderInfo);
 	opts.apiJson = true;
 	opts.auth256 = true;
