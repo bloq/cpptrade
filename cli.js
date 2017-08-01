@@ -46,6 +46,33 @@ if (cli_cmd == "info") {
 		console.dir(res);
 	});
 
+} else if (cli_cmd == "book") {
+	if (cli_args.length < 1) {
+		console.log("missing symbol argument");
+		process.exit(1);
+	}
+
+	var symbol = cli_args[0];
+	var depth = 1;
+	if (cli_args.length > 1) {
+		depth = parseInt(cli_args[1]);
+		if ((depth < 1) || (depth > 3)) {
+			console.log("invalid depth argument");
+			process.exit(1);
+		}
+	}
+
+	var bookOpt = {
+		"symbol": symbol,
+		"depth": depth,
+	};
+
+	cli.book(bookOpt, function(err, res) {
+		if (err) { throw new Error(err); }
+
+		console.dir(res);
+	});
+
 } else if (cli_cmd == "order") {
 	if (cli_args.length != 1) {
 		console.log("missing order-id argument");

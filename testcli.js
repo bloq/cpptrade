@@ -86,7 +86,12 @@ function step_addSell(callback) {
 function step_orderBook(callback) {
 	var cli = new ApiClient();
 
-	cli.book("GOOG", function(err, res) {
+	var bookOpt = {
+		symbol: "GOOG",
+		depth: 3,
+	};
+
+	cli.book(bookOpt, function(err, res) {
 		if (err) { throw new Error(err); }
 
 		console.log("BOOK:");

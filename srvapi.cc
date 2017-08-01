@@ -274,6 +274,13 @@ void reqOrderBookList(evhtp_request_t * req, void * arg)
 	// obtain symbol from uri regex matched substring
 	string inSymbol(req->uri->path->match_start);
 
+	// depth=N query param.  valid: 1-3, default 1.
+	int64_t depth;
+	if (!query_int64_range(req, "depth", depth, 1, 3, 1)) {
+		evhtp_send_reply(req, EVHTP_RES_BADREQ);
+		return;
+	}
+
 	// lookup order book from symbol
 	auto book = market.findBook(inSymbol);
 	if (!book) {
@@ -281,24 +288,99 @@ void reqOrderBookList(evhtp_request_t * req, void * arg)
 		return;
 	}
 
-	// gather list of asks from order book
 	UniValue asksArr(UniValue::VARR);
-	const OrderBook::TrackerMap& asks_ = book->asks();
-	for (auto ask = asks_.rbegin(); ask != asks_.rend(); ++ask) {
-		UniValue askObj(UniValue::VOBJ);
-		askObj.pushKV("price", (int64_t) ask->first.price());
-		askObj.pushKV("qty", (int64_t) ask->second.open_qty());
-		asksArr.push_back(askObj);
-	}
-
-	// gather list of bids from order book
 	UniValue bidsArr(UniValue::VARR);
+	const OrderBook::TrackerMap& asks_ = book->asks();
 	const OrderBook::TrackerMap& bids_ = book->bids();
-	for (auto bid = bids_.rbegin(); bid != bids_.rend(); ++bid) {
-		UniValue bidObj(UniValue::VOBJ);
-		bidObj.pushKV("price", (int64_t) bid->first.price());
-		bidObj.pushKV("qty", (int64_t) bid->second.open_qty());
-		bidsArr.push_back(bidObj);
+
+	switch (depth) {
+		case 1:
+		case 2:
+			{
+			map<liquibook::book::Price,liquibook::book::Quantity> agg_bids;
+			map<liquibook::book::Price,liquibook::book::Quantity> agg_asks;
+
+			// aggregate list of asks from order book
+			for (auto ask = asks_.rbegin(); ask != asks_.rend(); ++ask) {
+				liquibook::book::Price price = ask->first.price();
+				liquibook::book::Quantity qty = ask->second.open_qty();
+				if (agg_asks.count(price))
+					agg_asks[price] += qty;
+				else
+					agg_asks[price] = qty;
+			}
+
+			// aggregate list of bids from order book
+			for (auto bid = bids_.rbegin(); bid != bids_.rend(); ++bid) {
+				liquibook::book::Price price = bid->first.price();
+				liquibook::book::Quantity qty = bid->second.open_qty();
+				if (agg_bids.count(price))
+					agg_bids[price] += qty;
+				else
+					agg_bids[price] = qty;
+			}
+
+			// output best bid/ask
+			if (depth == 1) {
+				auto ask = agg_asks.begin();
+				UniValue askObj(UniValue::VOBJ);
+				askObj.pushKV("price", (int64_t) ask->first);
+				askObj.pushKV("qty", (int64_t) ask->second);
+				asksArr.push_back(askObj);
+
+				auto bid = agg_bids.rbegin();
+				UniValue bidObj(UniValue::VOBJ);
+				bidObj.pushKV("price", (int64_t) bid->first);
+				bidObj.pushKV("qty", (int64_t) bid->second);
+				bidsArr.push_back(bidObj);
+
+			// output aggregated order book
+			} else {
+				// gather list of aggregate asks from order book
+				for (auto ask = agg_asks.begin();
+				     ask != agg_asks.end(); ++ask) {
+					UniValue askObj(UniValue::VOBJ);
+					askObj.pushKV("price", (int64_t) ask->first);
+					askObj.pushKV("qty", (int64_t) ask->second);
+					asksArr.push_back(askObj);
+				}
+
+				// gather list of aggregate bids from order book
+				for (auto bid = agg_bids.begin();
+				     bid != agg_bids.end(); ++bid) {
+					UniValue bidObj(UniValue::VOBJ);
+					bidObj.pushKV("price", (int64_t) bid->first);
+					bidObj.pushKV("qty", (int64_t) bid->second);
+					bidsArr.push_back(bidObj);
+				}
+			}
+			break;
+			}
+
+		case 3:
+			{
+			// gather list of asks from order book
+			for (auto ask = asks_.rbegin(); ask != asks_.rend(); ++ask) {
+				UniValue askObj(UniValue::VOBJ);
+				askObj.pushKV("price", (int64_t) ask->first.price());
+				askObj.pushKV("qty", (int64_t) ask->second.open_qty());
+				asksArr.push_back(askObj);
+			}
+
+			// gather list of bids from order book
+			for (auto bid = bids_.rbegin(); bid != bids_.rend(); ++bid) {
+				UniValue bidObj(UniValue::VOBJ);
+				bidObj.pushKV("price", (int64_t) bid->first.price());
+				bidObj.pushKV("qty", (int64_t) bid->second.open_qty());
+				bidsArr.push_back(bidObj);
+			}
+			break;
+			}
+
+		default:
+			// should not happen
+			assert(0);
+			break;
 	}
 
 	// build return object

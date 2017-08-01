@@ -169,10 +169,12 @@ ApiClient.prototype.marketAdd = function(marketInfo, callback) {
 	});
 };
 
-ApiClient.prototype.book = function(symbol, callback) {
+ApiClient.prototype.book = function(bookOpt, callback) {
 	var opts = JSON.parse(JSON.stringify(this.httpOpts));
 	opts.method = 'GET';
-	opts.path = '/book/' + symbol;
+	opts.path = '/book/' + bookOpt.symbol;
+	if (bookOpt.depth)
+		opts.path += "?depth=" + bookOpt.depth.toString();
 	opts.apiJson = true;
 
 	callHttp(opts, function(err, res) {
