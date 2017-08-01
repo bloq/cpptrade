@@ -351,13 +351,16 @@ static void shutdown_signal(int signo)
 }
 
 static std::vector<struct HttpApiEntry> apiRegistry = {
-	{ false, "/info", false, reqInfo, false, false },
-	{ true,  "/marketAdd", false, reqMarketAdd, true, true },
-	{ false, "/marketList", false, reqMarketList, false, false },
-	{ false, "/book", false, reqOrderBookList, true, true },
-	{ true,  "/orderAdd", false, reqOrderAdd, true, true },
-	{ true,  "/orderCancel", false, reqOrderCancel, true, true },
-	{ true,  "/orderModify", false, reqOrderModify, true, true },
+	// auth? path			regex? cb	input? json-input?
+	{ false, "/info",		false, reqInfo, false, false },
+
+	{ false, "/marketList",		false, reqMarketList, false, false },
+	{ true,  "/marketAdd",		false, reqMarketAdd, true, true },
+
+	{ false, "^/book/([A-Z]+)",	true,  reqOrderBookList, false, false },
+	{ true,  "/orderAdd",		false, reqOrderAdd, true, true },
+	{ true,  "/orderCancel",	false, reqOrderCancel, true, true },
+	{ true,  "/orderModify",	false, reqOrderModify, true, true },
 	{ true,  "^/order/([a-z0-9-]+)", true, reqOrderInfo, true, true },
 };
 

@@ -271,19 +271,8 @@ void reqOrderBookList(evhtp_request_t * req, void * arg)
 	if (!reqPreProcessing(req, state))
 		return;		// pre-processing failed; response already sent
 
-	// required JSON parameters and their types
-	std::map<std::string,UniValue::VType> apiSchema;
-	apiSchema["symbol"] = UniValue::VSTR;
-
-	// parse input into JSON + preliminary input validation
-	UniValue jval;
-	if (!parseBySchema(state, apiSchema, jval)) {
-		evhtp_send_reply(req, EVHTP_RES_BADREQ);
-		return;
-	}
-
-	// copy JSON input params into more manageable temporary variables
-	string inSymbol = jval["symbol"].getValStr();
+	// obtain symbol from uri regex matched substring
+	string inSymbol(req->uri->path->match_start);
 
 	// lookup order book from symbol
 	auto book = market.findBook(inSymbol);

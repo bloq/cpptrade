@@ -157,9 +157,7 @@ ApiClient.prototype.marketAdd = function(marketInfo, callback) {
 ApiClient.prototype.book = function(symbol, callback) {
 	var opts = JSON.parse(JSON.stringify(this.httpOpts));
 	opts.method = 'GET';
-	opts.path = '/book';
-	postObj = { "symbol": symbol };
-	opts.postData = JSON.stringify(postObj);
+	opts.path = '/book/' + symbol;
 	opts.apiJson = true;
 
 	callHttp(opts, function(err, res) {
