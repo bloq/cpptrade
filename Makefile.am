@@ -1,5 +1,6 @@
 
-AM_CPPFLAGS = -std=c++11 $(PTHREAD_CFLAGS)
+AM_CPPFLAGS = -std=c++11 $(PTHREAD_CFLAGS) \
+	-I$(top_srcdir)/vendor/liquibook/src
 
 sbin_PROGRAMS = obsrv
 
