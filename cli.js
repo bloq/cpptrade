@@ -12,7 +12,20 @@ if (process.argv.length < 3) {
 var cli_cmd = process.argv[2];
 var cli_args = process.argv.slice(3);
 
-if (cli_cmd == "info") {
+if (cli_cmd == "help") {
+	const msg =
+	"Commands:\n" +
+	"info\t\t\t\tShow server info\n" +
+	"market.list\t\t\tShow all markets\n" +
+	"market.add SYMBOL [booktype]\tAdd new market\n" +
+	"book SYMBOL [depth]\t\tShow order book\n" +
+	"order order-id\t\t\tShow info on a single order\n" +
+	"order.cancel order-id\t\tCancel a single order\n" +
+	"order.modify order-id\t\tModify a single order\n" +
+	"order.add [json order info]\tAdd new order\n";
+
+	console.log(msg);
+} else if (cli_cmd == "info") {
 	cli.info(function(err, res) {
 		if (err) { throw new Error(err); }
 
