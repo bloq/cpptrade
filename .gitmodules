@@ -1,0 +1,3 @@
+[submodule "vendor/liquibook"]
+	path = vendor/liquibook
+	url = https://github.com/objectcomputing/liquibook.git
