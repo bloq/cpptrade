@@ -172,7 +172,7 @@ void reqOrderAdd(evhtp_request_t * req, void * arg)
 	const liquibook::book::OrderConditions IOC(liquibook::book::oc_immediate_or_cancel);
 	const liquibook::book::OrderConditions NOC(liquibook::book::oc_no_conditions);
 
-	const liquibook::book::OrderConditions conditions = 
+	const liquibook::book::OrderConditions conditions =
 	    (aon ? AON : NOC) | (ioc ? IOC : NOC);
 
 	// submit order to order book

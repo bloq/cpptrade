@@ -4,7 +4,7 @@
 #include "Market.h"
 #include "Util.h"
 
-#include <functional> 
+#include <functional>
 #include <cctype>
 #include <locale>
 
@@ -227,14 +227,14 @@ bool Market::findExistingOrder(const std::string & orderId, OrderPtr & order, Or
 /////////////////////////////////////
 // Implement OrderListener interface
 
-void 
+void
 Market::on_accept(const OrderPtr& order)
 {
     order->onAccepted();
     out() << "\tEvent:Accepted: " <<*order<< std::endl;
 }
 
-void 
+void
 Market::on_reject(const OrderPtr& order, const char* reason)
 {
     order->onRejected(reason);
@@ -242,21 +242,21 @@ Market::on_reject(const OrderPtr& order, const char* reason)
 
 }
 
-void 
-Market::on_fill(const OrderPtr& order, 
-    const OrderPtr& matched_order, 
-    liquibook::book::Quantity fill_qty, 
+void
+Market::on_fill(const OrderPtr& order,
+    const OrderPtr& matched_order,
+    liquibook::book::Quantity fill_qty,
     liquibook::book::Cost fill_cost)
 {
     order->onFilled(fill_qty, fill_cost);
     matched_order->onFilled(fill_qty, fill_cost);
-    out() << (order->is_buy() ? "\tEvent:Fill-Bought: " : "\tEvent:Fill-Sold: ") 
+    out() << (order->is_buy() ? "\tEvent:Fill-Bought: " : "\tEvent:Fill-Sold: ")
         << fill_qty << " Shares for " << fill_cost << ' ' <<*order<< std::endl;
-    out() << (matched_order->is_buy() ? "\tBought: " : "\tSold: ") 
+    out() << (matched_order->is_buy() ? "\tBought: " : "\tSold: ")
         << fill_qty << " Shares for " << fill_cost << ' ' << *matched_order << std::endl;
 }
 
-void 
+void
 Market::on_cancel(const OrderPtr& order)
 {
     order->onCancelled();
@@ -269,8 +269,8 @@ void Market::on_cancel_reject(const OrderPtr& order, const char* reason)
     out() << "\tEvent:Cancel Reject: " <<*order<< ' ' << reason << std::endl;
 }
 
-void Market::on_replace(const OrderPtr& order, 
-    const int32_t& size_delta, 
+void Market::on_replace(const OrderPtr& order,
+    const int32_t& size_delta,
     liquibook::book::Price new_price)
 {
     order->onReplaced(size_delta, new_price);
@@ -286,7 +286,7 @@ void Market::on_replace(const OrderPtr& order,
     out() <<*order<< std::endl;
 }
 
-void 
+void
 Market::on_replace_reject(const OrderPtr& order, const char* reason)
 {
     order->onReplaceRejected(reason);
@@ -296,9 +296,9 @@ Market::on_replace_reject(const OrderPtr& order, const char* reason)
 ////////////////////////////////////
 // Implement TradeListener interface
 
-void 
-Market::on_trade(const OrderBook* book, 
-    liquibook::book::Quantity qty, 
+void
+Market::on_trade(const OrderBook* book,
+    liquibook::book::Quantity qty,
     liquibook::book::Cost cost)
 {
     out() << "\tEvent:Trade: " << qty <<  ' ' << book->symbol() << " Cost "  << cost  << std::endl;
@@ -307,7 +307,7 @@ Market::on_trade(const OrderBook* book,
 /////////////////////////////////////////
 // Implement OrderBookListener interface
 
-void 
+void
 Market::on_order_book_change(const OrderBook* book)
 {
     out() << "\tEvent:Book Change: " << ' ' << book->symbol() << std::endl;
@@ -317,10 +317,10 @@ Market::on_order_book_change(const OrderBook* book)
 
 /////////////////////////////////////////
 // Implement BboListener interface
-void 
+void
 Market::on_bbo_change(const DepthOrderBook * book, const BookDepth * depth)
 {
-    out() << "\tEvent:BBO Change: " << ' ' << book->symbol() 
+    out() << "\tEvent:BBO Change: " << ' ' << book->symbol()
         << (depth->changed() ? " Changed" : " Unchanged")
         << " Change Id: " << depth->last_change()
         << " Published: " << depth->last_published_change()
@@ -330,7 +330,7 @@ Market::on_bbo_change(const DepthOrderBook * book, const BookDepth * depth)
 
 /////////////////////////////////////////
 // Implement DepthListener interface
-void 
+void
 Market::on_depth_change(const DepthOrderBook * book, const BookDepth * depth)
 {
     out() << "\tEvent:Depth Change: " << ' ' << book->symbol();

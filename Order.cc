@@ -32,31 +32,31 @@ Order::Order(const std::string & id,
 {
 }
 
-std::string 
+std::string
 Order::order_id() const
 {
     return id_;
 }
 
-bool 
+bool
 Order::is_limit() const
 {
     return price() != 0;
 }
 
-bool 
+bool
 Order::is_buy() const
 {
     return buy_side_;
 }
 
-bool 
+bool
 Order::all_or_none() const
 {
     return aon_;
 }
 
-bool 
+bool
 Order::immediate_or_cancel() const
 {
     return ioc_;
@@ -67,64 +67,64 @@ void Order::genTimestamp()
 	gettimeofday(&tstamp_, NULL);
 }
 
-std::string 
+std::string
 Order::symbol() const
 {
    return symbol_;
 }
 
-liquibook::book::Price 
+liquibook::book::Price
 Order::price() const
 {
     return price_;
 }
 
-liquibook::book::Quantity 
+liquibook::book::Quantity
 Order::order_qty() const
 {
     return quantity_;
 }
 
 
-liquibook::book::Price 
+liquibook::book::Price
 Order::stop_price() const
 {
     return stopPrice_;
 }
 
-uint32_t 
+uint32_t
 Order::quantityOnMarket() const
 {
     return quantityOnMarket_;
 }
 
-uint32_t 
+uint32_t
 Order::quantityFilled() const
 {
     return quantityFilled_;
 }
 
-uint32_t 
+uint32_t
 Order::fillCost() const
 {
     return fillCost_;
 }
 
 
-const Order::History & 
+const Order::History &
 Order::history() const
 {
     return history_;
 }
 
-const Order::StateChange & 
+const Order::StateChange &
 Order::currentState() const
 {
     return history_.back();
 }
 
 
-Order & 
+Order &
 Order::verbose(bool verbose)
 {
     verbose_ = verbose;
@@ -137,7 +137,7 @@ Order::isVerbose() const
     return verbose_;
 }
 
-void 
+void
 Order::onSubmitted()
 {
     std::stringstream msg;
@@ -153,22 +153,22 @@ Order::onSubmitted()
     history_.emplace_back(Submitted, msg.str());
 }
 
-void 
+void
 Order::onAccepted()
 {
     quantityOnMarket_ = quantity_;
     history_.emplace_back(Accepted);
 }
 
-void 
+void
 Order::onRejected(const char * reason)
 {
     history_.emplace_back(Rejected, reason);
 }
 
-void 
+void
 Order::onFilled(
-    liquibook::book::Quantity fill_qty, 
+    liquibook::book::Quantity fill_qty,
     liquibook::book::Cost fill_cost)
 {
     quantityOnMarket_ -= fill_qty;
@@ -179,28 +179,28 @@ Order::onFilled(
     history_.emplace_back(Filled, msg.str());
 }
 
-void 
+void
 Order::onCancelRequested()
 {
     history_.emplace_back(CancelRequested);
 }
 
-void 
+void
 Order::onCancelled()
 {
     quantityOnMarket_ = 0;
     history_.emplace_back(Cancelled);
 }
 
-void 
+void
 Order::onCancelRejected(const char * reason)
 {
     history_.emplace_back(CancelRejected, reason);
 }
 
-void 
+void
 Order::onReplaceRequested(
-    const int32_t& size_delta, 
+    const int32_t& size_delta,
     liquibook::book::Price new_price)
 {
     std::stringstream msg;
@@ -215,8 +215,8 @@ Order::onReplaceRequested(
     history_.emplace_back(ModifyRequested, msg.str());
 }
 
-void 
-Order::onReplaced(const int32_t& size_delta, 
+void
+Order::onReplaced(const int32_t& size_delta,
     liquibook::book::Price new_price)
 {
     std::stringstream msg;
@@ -234,7 +234,7 @@ Order::onReplaced(const int32_t& size_delta,
     history_.emplace_back(Modified, msg.str());
 }
 
-void 
+void
 Order::onReplaceRejected(const char * reason)
 {
     history_.emplace_back(ModifyRejected, reason);
@@ -248,8 +248,8 @@ std::ostream & operator << (std::ostream & out, const Order::StateChange & event
     case Order::Submitted:
         out << "Submitted ";
         break;
-    case Order::Rejected: 
-        out << "Rejected "; 
+    case Order::Rejected:
+        out << "Rejected ";
         break;
     case Order::Accepted:
         out << "Accepted ";
@@ -266,8 +266,8 @@ std::ostream & operator << (std::ostream & out, const Order::StateChange & event
     case Order::PartialFilled:
         out << "PartialFilled ";
         break;
-    case Order::Filled: 
-        out << "Filled "; 
+    case Order::Filled:
+        out << "Filled ";
         break;
     case Order::CancelRequested:
         out << "CancelRequested ";
@@ -275,8 +275,8 @@ std::ostream & operator << (std::ostream & out, const Order::StateChange & event
     case Order::CancelRejected:
         out << "CancelRejected ";
         break;
-    case Order::Cancelled: 
-        out << "Cancelled "; 
+    case Order::Cancelled:
+        out << "Cancelled ";
         break;
     case Order::Unknown:
         out << "Unknown ";
@@ -289,7 +289,7 @@ std::ostream & operator << (std::ostream & out, const Order::StateChange & event
 
 std::ostream & operator << (std::ostream & out, const Order & order)
 {
-    out << "[#" << order.order_id(); 
+    out << "[#" << order.order_id();
     out << ' ' << (order.is_buy() ? "BUY" : "SELL");
     out << ' ' << order.order_qty();
     out << ' ' << order.symbol();
@@ -334,7 +334,7 @@ std::ostream & operator << (std::ostream & out, const Order & order)
         for(auto event = history.begin(); event != history.end(); ++event)
         {
             out << "\n\t" << *event;
-        } 
+        }
     }
     else
     {
@@ -342,7 +342,7 @@ std::ostream & operator << (std::ostream & out, const Order & order)
     }
 
    out << ']';
-   
+
    return out;
 }
 
