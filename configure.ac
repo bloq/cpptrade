@@ -19,6 +19,7 @@ dnl Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 AC_INIT(cscpp, 0.0.1, [Jeff Garzik <jgarzik@pobox.com>])
 AC_PREREQ(2.52)
+AC_LANG([C++])
 AC_CONFIG_SRCDIR([obsrv.cc])
 AM_INIT_AUTOMAKE([gnu])
 AH_TOP([#ifndef __CSCPP_CONFIG_H__
@@ -53,6 +54,7 @@ dnl AC_CHECK_LIB(gssrpc, gssrpc_svc_register, GSSRPC_LIBS=-lgssrpc, exit 1)
 
 AC_CHECK_LIB(argp, argp_parse, ARGP_LIB=-largp)
 AC_CHECK_LIB(uuid, uuid_generate_random, UUID_LIB=-luuid)
+AC_CHECK_LIB(rocksdb, rocksdb_open, ROCKS_LIB=-lrocksdb)
 
 dnl -------------------------------------
 dnl Checks for optional library functions
@@ -72,6 +74,7 @@ dnl AC_SUBST(DB4_LIBS)
 dnl AC_SUBST(EVENT_LIBS)
 AC_SUBST(ARGP_LIB)
 AC_SUBST(UUID_LIB)
+AC_SUBST(ROCKS_LIB)
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

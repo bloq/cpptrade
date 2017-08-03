@@ -19,12 +19,18 @@ Makefile
 Makefile.in
 config.log
 config.status
+
+libobcommon.a
 obsrv
+obdb
+
 stamp-h1
 test-driver
 *.o
 *.log
 *.trs
 
+obsrv.rocks/
 config-obsrv.json
+load-accounts.json
 

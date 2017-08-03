@@ -9,6 +9,8 @@
 #include <openssl/sha.h>
 #include "Market.h"
 
+#define DEFAULT_DATASTORE_FN "obsrv.rocks"
+
 struct HttpApiEntry {
 	bool			authReq;	// authentication req'd?
 
