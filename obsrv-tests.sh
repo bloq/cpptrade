@@ -2,6 +2,7 @@
 
 CWD=`pwd`
 PID_FN="$CWD/obsrv.pid"
+CFG_FN="./test-config-obsrv.json"
 
 #
 # Daemon startup
@@ -15,7 +16,7 @@ then
 fi
 
 # Start daemon in background
-./obsrv -p $PID_FN --daemon
+./obsrv -c $CFG_FN -p $PID_FN --daemon
 sleep 1
 
 # PID file must exist

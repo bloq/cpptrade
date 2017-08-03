@@ -33,6 +33,6 @@ obdb_LDADD = \
 	-lunivalue \
 	$(OPENSSL_LIBS) $(ARGP_LIB) $(UUID_LIB) $(ROCKS_LIB)
 
-EXTRA_DIST = obsrv-tests.sh
+EXTRA_DIST = obsrv-tests.sh test-config-obsrv.json
 TESTS = obsrv-tests.sh
 
