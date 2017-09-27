@@ -21,7 +21,7 @@ AC_INIT(cscpp, 0.0.1, [Jeff Garzik <jgarzik@pobox.com>])
 AC_PREREQ(2.52)
 AC_LANG([C++])
 AC_CONFIG_SRCDIR([obsrv.cc])
-AM_INIT_AUTOMAKE([gnu])
+AM_INIT_AUTOMAKE([foreign])
 AH_TOP([#ifndef __CSCPP_CONFIG_H__
 #define __CSCPP_CONFIG_H__])
 AH_BOTTOM([#endif /* __CSCPP_CONFIG_H__ */])
