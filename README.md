@@ -5,14 +5,16 @@ C++ order booking trading / matching engine
 
 # Dependencies
 
-OpenSSL, RocksDB
+* OpenSSL
+* RocksDB
+* libevhtp: https://github.com/criticalstack/libevhtp
 
 # Building and installing
 
 This uses the standard autotools pattern:
 
 	$ ./autogen.sh
-	$ ./configure
+	$ CXXFLAGS="-O2 -Wall -g -I/usr/local/include/evhtp" ./configure
 	$ make			# compile
 	$ make check		# run tests
 	$ sudo make install	# install on system
