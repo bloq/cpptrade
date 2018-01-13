@@ -1,0 +1,5 @@
+project : liquibook {
+  libout = $(LIQUIBOOK_ROOT)/lib
+  macros += LIQUIBOOK_BUILD_DLL  
+}
+
